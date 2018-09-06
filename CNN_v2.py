@@ -6,6 +6,7 @@ from torchvision import models
 import configparser
 import sys
 import time
+from time_left import pretty_time_left
 
 if __name__ == '__main__':
 
@@ -94,7 +95,7 @@ if __name__ == '__main__':
             current_time = time.time()
             print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, time since start {}, time in epoch {}, time remaining {}'
                 .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(), current_time-start_time, current_time-start_epoch, 
-                    (current_time-start_time)/(epoch*len(train_loader)+i+1)*((num_epochs-epoch)*len(train_loader)-i)))
+                    pretty_time_left(start_time, epoch*len(train_loader)+i+1, num_epochs*len(train_loader))))
 
         if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
             torch.save(model.state_dict(), 'model_after_epoch_{}.ckpt'.format(epoch))
@@ -117,7 +118,10 @@ if __name__ == '__main__':
                 confusion[pred, lab] += 1            
 
         print('Test Accuracy of the model on the 10000 test images: {} %'.format(100 * correct / total))
-        print('Classes: {}'.format(dataset.class_to_idx))
+        if num_samples > 1:
+            print('Classes: {}'.format(dataset[0].class_to_idx))
+        else:
+            print('Classes: {}'.format(dataset.class_to_idx))
         print('Confusion matrix:\n', (confusion))
 
     # Save the model checkpoint
