@@ -77,7 +77,7 @@ if __name__ == '__main__':
                 print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                     .format(epoch + 1, num_epochs, i + 1, total_step, loss.item()))
 
-        if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
+        if config['output'].getboolean('save during training', false) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
             torch.save(model.state_dict(), 'model_after_epoch_{}.ckpt'.format(epoch))
 
     # Test the model
