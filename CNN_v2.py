@@ -119,7 +119,7 @@ if __name__ == '__main__':
 
         print('Test Accuracy of the model on the 10000 test images: {} %'.format(100 * correct / total))
         if num_samples > 1:
-            print('Classes: {}'.format(dataset[0].class_to_idx))
+            print('Classes: {}'.format(dataset.datasets[1].class_to_idx))
         else:
             print('Classes: {}'.format(dataset.class_to_idx))
         print('Confusion matrix:\n', (confusion))
