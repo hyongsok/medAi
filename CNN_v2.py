@@ -6,7 +6,7 @@ from torchvision import models
 import configparser
 import sys
 import time
-from time_left import pretty_time_left
+from time_left import pretty_time_left, pretty_print_time
 
 if __name__ == '__main__':
 
@@ -93,8 +93,8 @@ if __name__ == '__main__':
             optimizer.step()
 
             current_time = time.time()
-            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, time since start {}, time in epoch {}, time remaining {}'
-                .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(), current_time-start_time, current_time-start_epoch, 
+            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, time since start {}s, time in epoch {}s, time remaining {}'
+                .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(), pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
                     pretty_time_left(start_time, epoch*len(train_loader)+i+1, num_epochs*len(train_loader))))
 
         if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):

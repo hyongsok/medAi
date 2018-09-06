@@ -1,6 +1,9 @@
 import time
 
 def pretty_time_left( start_time, current_iteration, max_iterations ):
+    return pretty_print_time( time_left( start_time, current_iteration, max_iterations ) )
+    
+def pretty_print_time( remaining ):
     remaining = time_left( start_time, current_iteration, max_iterations )
     if remaining < 60:
         time_string = "{.0f}s".format(remaining)
