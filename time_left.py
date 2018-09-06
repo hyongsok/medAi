@@ -5,7 +5,7 @@ def pretty_time_left( start_time, current_iteration, max_iterations ):
 
 def pretty_print_time( remaining ):
     if remaining < 60:
-        time_string = "{.0f}s".format(remaining)
+        time_string = "{:.0f}s".format(remaining)
     elif remaining < 3600:
         time_string = "{}:{} min".format(int(remaining/60), int(remaining%60))
     elif remaining < 86400:
