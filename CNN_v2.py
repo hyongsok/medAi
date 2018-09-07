@@ -51,8 +51,11 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def train( train_loader, device, model, criterion, optimizer, epoch, config, start_time ):
+def train( train_loader, device, model, criterion, optimizer, epoch, start_time ):
     start_epoch = time.time()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+
     for i, (images, labels) in enumerate(train_loader):
         images = images.to(device)
         labels = labels.to(device)
@@ -60,6 +63,11 @@ def train( train_loader, device, model, criterion, optimizer, epoch, config, sta
         # Forward pass
         outputs = model(images)
         loss = criterion(outputs, labels)
+
+        # evaluate
+        losses.update(loss.item(), images.size(0))
+        _, predicted = torch.max(outputs.data, 1)
+        top1.update((predicted == labels).sum().item(), labels.size(0))
 
         # Backward and optimize
         optimizer.zero_grad()
@@ -71,10 +79,37 @@ def train( train_loader, device, model, criterion, optimizer, epoch, config, sta
             .format(epoch + 1, i + 1, len(train_loader), loss.item(), pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
                 pretty_time_left(start_time, i+1, len(train_loader))))
 
-    if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
-        torch.save(model.state_dict(), config['output'].get('filename', 'model')+'_after_epoch_{}.ckpt'.format(epoch))        
+    return losses, top1   
 
-if __name__ == '__main__':
+def validate( model, criterion, num_classes, test_loader, device ):
+    model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
+    with torch.no_grad():
+        correct = 0
+        total = 0
+        losses = AverageMeter()
+        top1 = AverageMeter()
+        confusion = torch.zeros((num_classes,num_classes), dtype=torch.float)
+
+        for images, labels in test_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+
+            losses.update(loss.item(), images.size(0))
+
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+            top1.update((predicted == labels).sum().item(), labels.size(0))
+            for pred, lab in zip(predicted, labels):
+                confusion[pred, lab] += 1
+    
+    return losses, top1, confusion
+
+
+def main():
 
     # Device configuration
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -141,54 +176,70 @@ if __name__ == '__main__':
     print('Model set up. Ready to train.')
 
     # Train the model
+    train_loss = torch.zeros(num_epochs, dtype=torch.float)
+    train_accuracy = torch.zeros(num_epochs, dtype=torch.float)
+    test_loss = torch.zeros(num_epochs, dtype=torch.float)
+    test_accuracy = torch.zeros(num_epochs, dtype=torch.float)
+    test_confusion = torch.zeros((num_epochs, num_classes, num_classes), dtype=torch.float)
     start_time = time.time()
     for epoch in range(num_epochs):
         start_epoch = time.time()
         adjust_learning_rate(optimizer, epoch, learning_rate)
 
-        train( train_loader, device, model, criterion, optimizer, epoch, config, start_time )
+        losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch, start_time )
+        train_loss[epoch] = losses.avg
+        train_accuracy[epoch] = top1.avg
         
-        current_time = time.time()
-        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, time remaining {}'
-            .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
-                pretty_time_left(start_time, epoch+1, num_epochs)))
+        losses, top1, confusion = validate( model, criterion, num_classes, test_loader, device )
+        test_loss[epoch] = losses.avg
+        test_accuracy[epoch] = top1.avg
+        test_confusion[epoch,:,:] = confusion
 
-    # Test the model
-    validate()
-
-      # Save the model checkpoint
-    torch.save(model.state_dict(), config['output'].get('filename', 'model')+'.ckpt')  
-
-def validate( model, criterion, num_classes, test_loader ):
-    model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
-    with torch.no_grad():
-        correct = 0
-        total = 0
-        losses = AverageMeter()
-        confusion = torch.zeros((num_classes,num_classes), dtype=torch.float)
-
-        for images, labels in test_loader:
-            images = images.to(device)
-            labels = labels.to(device)
-
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-
-            losses.update(loss.item(), images.size(0))
-
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-            for pred, lab in zip(predicted, labels):
-                confusion[pred, lab] += 1
-
-        print('Test Accuracy of the model on the 10000 test images: {} %'.format(100 * correct / total))
+        print('Test Accuracy of the model on the 10000 test images: {} %'.format(100 * top1.avg))
         if num_samples > 1:
             print('Classes: {}'.format(dataset.datasets[1].class_to_idx))
         else:
             print('Classes: {}'.format(dataset.class_to_idx))
         print('Confusion matrix:\n', (confusion))
-    
-    return losses, correct/total
+
+        if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
+            torch.save({
+                'epoch': epoch + 1,
+                'state_dict': model.state_dict(),
+                'optimizer' : optimizer.state_dict(),
+            }, config['output'].get('filename', 'model')+'_after_epoch_{}.ckpt'.format(epoch))
+
+        current_time = time.time()
+        torch.save({
+            'train_loss': train_loss,
+            'train_accuracy': train_accuracy,
+            'test_loss': test_loss,
+            'test_accuracy': test_accuracy,
+            'test_confusion': test_confusion,
+        }, config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch))
+        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, time remaining {}'
+            .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
+                pretty_time_left(start_time, epoch+1, num_epochs)))
+
+    # Test the model
+    #losses, top1, confusion = validate( model, criterion, num_classes, test_loader )
+
+      # Save the model checkpoint
+    torch.save({
+        'epoch': num_epochs + 1,
+        'state_dict': model.state_dict(),
+        'optimizer' : optimizer.state_dict(),
+    }, config['output'].get('filename', 'model')+'.ckpt')
+    torch.save({
+        'train_loss': train_loss,
+        'train_accuracy': train_accuracy,
+        'test_loss': test_loss,
+        'test_accuracy': test_accuracy,
+        'test_confusion': test_confusion,
+    }, config['output'].get('filename', 'model')+'_validation.dat')    
+
+
+if __name__ == '__main__':
+    main()
 
 
