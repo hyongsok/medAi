@@ -75,9 +75,9 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time 
         optimizer.step()
 
         current_time = time.time()
-        print('Epoch [{}], Step [{}/{}], Loss: {:.4f}, time since start {}, time in epoch {}, time remaining {}'
+        print('Epoch [{}], Step [{}/{}], Loss: {:.4f}, time since start {}, time in epoch {}, epoch remaining {}'
             .format(epoch + 1, i + 1, len(train_loader), loss.item(), pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
-                pretty_time_left(start_time, i+1, len(train_loader))))
+                pretty_time_left(start_epoch, i+1, len(train_loader))))
 
     return losses, top1   
 
@@ -142,6 +142,8 @@ def main():
 
     dataset = torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'),
                                                     transform=data_transform)
+    classes = dataset.class_to_idx
+
     for ii in range(num_samples-1):
         dataset += torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'), transform=data_transform)
 
@@ -196,10 +198,7 @@ def main():
         test_confusion[epoch,:,:] = confusion
 
         print('Test Accuracy of the model on the 10000 test images: {} %'.format(100 * top1.avg))
-        if num_samples > 1:
-            print('Classes: {}'.format(dataset.datasets[1].class_to_idx))
-        else:
-            print('Classes: {}'.format(dataset.class_to_idx))
+        print('Classes: {}'.format(classes))
         print('Confusion matrix:\n', (confusion))
 
         if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
@@ -216,8 +215,9 @@ def main():
             'test_loss': test_loss,
             'test_accuracy': test_accuracy,
             'test_confusion': test_confusion,
+            'classes': classes,
         }, config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch))
-        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, time remaining {}'
+        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}'
             .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
                 pretty_time_left(start_time, epoch+1, num_epochs)))
 
@@ -236,6 +236,7 @@ def main():
         'test_loss': test_loss,
         'test_accuracy': test_accuracy,
         'test_confusion': test_confusion,
+        'classes': classes,
     }, config['output'].get('filename', 'model')+'_validation.dat')    
 
 
