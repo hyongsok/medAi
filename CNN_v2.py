@@ -8,6 +8,72 @@ import sys
 import time
 from time_left import pretty_time_left, pretty_print_time
 
+
+class AverageMeter(object):
+    """Computes and stores the average and current value"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
+
+
+def adjust_learning_rate(optimizer, epoch, initial_lr):
+    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+    lr = initial_lr * (0.1 ** (epoch // 30))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
+
+
+def accuracy(output, target, topk=(1,)):
+    """Computes the precision@k for the specified values of k"""
+    with torch.no_grad():
+        maxk = max(topk)
+        batch_size = target.size(0)
+
+        _, pred = output.topk(maxk, 1, True, True)
+        pred = pred.t()
+        correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+        res = []
+        for k in topk:
+            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+            res.append(correct_k.mul_(100.0 / batch_size))
+        return res
+
+
+def train( train_loader, device, model, criterion, optimizer, epoch, config, start_time ):
+    start_epoch = time.time()
+    for i, (images, labels) in enumerate(train_loader):
+        images = images.to(device)
+        labels = labels.to(device)
+
+        # Forward pass
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+
+        # Backward and optimize
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        current_time = time.time()
+        print('Epoch [{}], Step [{}/{}], Loss: {:.4f}, time since start {}, time in epoch {}, time remaining {}'
+            .format(epoch + 1, i + 1, len(train_loader), loss.item(), pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
+                pretty_time_left(start_time, i+1, len(train_loader))))
+
+    if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
+        torch.save(model.state_dict(), config['output'].get('filename', 'model')+'_after_epoch_{}.ckpt'.format(epoch))        
+
 if __name__ == '__main__':
 
     # Device configuration
@@ -75,47 +141,46 @@ if __name__ == '__main__':
     print('Model set up. Ready to train.')
 
     # Train the model
-    total_step = len(train_loader)
     start_time = time.time()
     for epoch in range(num_epochs):
         start_epoch = time.time()
-        for i, (images, labels) in enumerate(train_loader):
-            images = images.to(device)
-            labels = labels.to(device)
+        adjust_learning_rate(optimizer, epoch, learning_rate)
 
-            # Forward pass
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-
-            # Backward and optimize
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            current_time = time.time()
-            print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}, time since start {}, time in epoch {}, time remaining {}'
-                .format(epoch + 1, num_epochs, i + 1, total_step, loss.item(), pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
-                    pretty_time_left(start_time, epoch*len(train_loader)+i+1, num_epochs*len(train_loader))))
-
-        if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
-            torch.save(model.state_dict(), 'model_after_epoch_{}.ckpt'.format(epoch))
+        train( train_loader, device, model, criterion, optimizer, epoch, config, start_time )
+        
+        current_time = time.time()
+        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, time remaining {}'
+            .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
+                pretty_time_left(start_time, epoch+1, num_epochs)))
 
     # Test the model
+    validate()
+
+      # Save the model checkpoint
+    torch.save(model.state_dict(), config['output'].get('filename', 'model')+'.ckpt')  
+
+def validate( model, criterion, num_classes, test_loader ):
     model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
     with torch.no_grad():
         correct = 0
         total = 0
+        losses = AverageMeter()
         confusion = torch.zeros((num_classes,num_classes), dtype=torch.float)
 
         for images, labels in test_loader:
             images = images.to(device)
             labels = labels.to(device)
+
             outputs = model(images)
+            loss = criterion(outputs, labels)
+
+            losses.update(loss.item(), images.size(0))
+
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
             for pred, lab in zip(predicted, labels):
-                confusion[pred, lab] += 1            
+                confusion[pred, lab] += 1
 
         print('Test Accuracy of the model on the 10000 test images: {} %'.format(100 * correct / total))
         if num_samples > 1:
@@ -123,6 +188,7 @@ if __name__ == '__main__':
         else:
             print('Classes: {}'.format(dataset.class_to_idx))
         print('Confusion matrix:\n', (confusion))
+    
+    return losses, correct/total
 
-    # Save the model checkpoint
-    torch.save(model.state_dict(), 'model.ckpt')
+
