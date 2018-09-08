@@ -3,7 +3,7 @@ import numpy as np
 import imageio
 
 
-def crop_image( im, thresh=20 ):
+def crop_image( im, thresh=6 ):
     mask = (im[:,:,0]>thresh) * (im[:,:,1]>thresh) * (im[:,:,2]>thresh)
     lower_border = np.where(mask.sum(1)>0)[0][0]
     upper_border = np.where(mask.sum(1)>0)[0][-1]
@@ -21,10 +21,13 @@ def normalize_image( im, mask=True ):
 
 def process_folder( source, target ):
     file_list = [f for f in os.listdir(source) if os.path.isfile(os.path.join(source, f))]
-    os.makedirs(target)
+    try:
+        os.makedirs(target)
+    except:
+        pass
     for f in file_list:
         im = imageio.imread(source+f)
-        im, mask = crop_image( im, 20 )
+        im, mask = crop_image( im, 6 )
         im = normalize_image( im, mask )
         imageio.imwrite(target+f+'.cropped.png', np.array(im))
         
