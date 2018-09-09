@@ -55,8 +55,6 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time 
     start_epoch = time.time()
     losses = AverageMeter()
     top1 = AverageMeter()
-    losses.reset()
-    top1.reset()
     model.train()
 
     for i, (images, labels) in enumerate(train_loader):
@@ -94,8 +92,6 @@ def validate( model, criterion, num_classes, test_loader, device ):
         total = 0
         losses = AverageMeter()
         top1 = AverageMeter()
-        losses.reset()
-        top1.reset()
         confusion = torch.zeros((num_classes,num_classes), dtype=torch.float)
 
         for images, labels in test_loader:
@@ -138,7 +134,7 @@ def main():
     batch_size = config['hyperparameter'].getint('batch size', 10)
     learning_rate = config['hyperparameter'].getfloat('learning rate', 0.01)
 
-    num_samples = config['files'].getint('samples', 10)
+    num_samples = config['files'].getint('samples', 1000)
     image_size = config['files'].getint('image size', 299)
     training_set_percentage = config['files'].getint('training set percentage', 80)/100.0
     rotation_angle = config['files'].getint('rotation angle', 180)
@@ -146,8 +142,8 @@ def main():
     print("Paremeters:\nEpochs:\t\t{num_epochs}\nBatch size:\t{batch_size}\nLearning rate:\t{learning_rate}".format(num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate))
 
     data_transform = transforms.Compose([
-            transforms.RandomRotation(rotation_angle),
-            transforms.RandomResizedCrop(size=image_size, scale=(0.08,0.5), ratio=(0.8,1.25)),
+            #transforms.RandomRotation(rotation_angle),
+            transforms.RandomResizedCrop(size=image_size, scale=(0.08,1.0), ratio=(0.8,1.25)),
             transforms.ToTensor(),
         ])
 
@@ -179,8 +175,8 @@ def main():
     train_dataset, test_dataset = torch.utils.data.random_split(dataset, (training_split, len(dataset)-training_split))
     train_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[train_dataset.indices], training_size, True )
     test_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[test_dataset.indices], num_samples-training_size, True )
-    train_sampler = None
-    test_sampler = None
+    #train_sampler = None
+    #test_sampler = None
 
     print('Data sets prepared. {} samples of size {}x{}. Training set {} images, test set {}.'.format(num_samples, image_size, image_size, len(train_dataset), len(test_dataset)))
 
@@ -221,14 +217,14 @@ def main():
 
         losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch, start_time )
         train_loss[epoch] = losses.avg
-        train_accuracy[epoch] = top1.avg
+        train_accuracy[epoch] = top1.avg/batch_size
         
         losses, top1, confusion = validate( model, criterion, num_classes, test_loader, device )
         test_loss[epoch] = losses.avg
-        test_accuracy[epoch] = top1.avg
+        test_accuracy[epoch] = top1.avg/batch_size
         test_confusion[epoch,:,:] = confusion
 
-        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.val))
+        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg))
         print('Classes: {}'.format(classes))
         print('Confusion matrix:\n', (confusion))
 
