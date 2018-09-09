@@ -23,7 +23,7 @@ def process_folder( source, target ):
     file_list = [f for f in os.listdir(source) if os.path.isfile(os.path.join(source, f))]
     try:
         os.makedirs(target)
-    except:
+    except Exception:
         pass
     for f in file_list:
         im = imageio.imread(source+f)

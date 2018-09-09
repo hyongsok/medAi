@@ -7,7 +7,7 @@ import configparser
 import sys
 import time
 from time_left import pretty_time_left, pretty_print_time
-
+import numpy as np
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -55,8 +55,12 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time 
     start_epoch = time.time()
     losses = AverageMeter()
     top1 = AverageMeter()
+    losses.reset()
+    top1.reset()
+    model.train()
 
     for i, (images, labels) in enumerate(train_loader):
+        print(np.unique(labels, return_counts=True))
         images = images.to(device)
         labels = labels.to(device)
 
@@ -68,6 +72,8 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time 
         losses.update(loss.item(), images.size(0))
         _, predicted = torch.max(outputs.data, 1)
         top1.update((predicted == labels).sum().item(), labels.size(0))
+        print('DEBUG:', labels.size(0), (predicted == labels).sum().item(), loss.item(), images.size(0))
+
 
         # Backward and optimize
         optimizer.zero_grad()
@@ -88,9 +94,12 @@ def validate( model, criterion, num_classes, test_loader, device ):
         total = 0
         losses = AverageMeter()
         top1 = AverageMeter()
+        losses.reset()
+        top1.reset()
         confusion = torch.zeros((num_classes,num_classes), dtype=torch.float)
 
         for images, labels in test_loader:
+            print(np.unique(labels, return_counts=True))
             images = images.to(device)
             labels = labels.to(device)
 
@@ -103,8 +112,10 @@ def validate( model, criterion, num_classes, test_loader, device ):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
             top1.update((predicted == labels).sum().item(), labels.size(0))
+            print('DEBUG:', labels.size(0), (predicted == labels).sum().item(), loss.item(), images.size(0))
             for pred, lab in zip(predicted, labels):
                 confusion[pred, lab] += 1
+        print('Acuracy: ', str(correct/total))
     
     return losses, top1, confusion
 
@@ -143,26 +154,46 @@ def main():
     dataset = torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'),
                                                     transform=data_transform)
     classes = dataset.class_to_idx
+    class_distribution = np.array(dataset.imgs)[:,1].astype(int)
+    weights = np.zeros(len(classes))
+    for ii in range(len(classes)):
+        weights[ii] = np.sum(class_distribution == ii)/len(class_distribution)
+    inverted_weights = (1/weights)/np.sum(1/weights)
+    sampling_weights = np.zeros(class_distribution.shape, dtype=np.float)
+    for ii in range(len(classes)):
+        sampling_weights[class_distribution == ii] = inverted_weights[ii]
+    sampling_weights /= sampling_weights.sum()
+    print('Weights:', inverted_weights)
 
-    for ii in range(num_samples-1):
-        dataset += torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'), transform=data_transform)
+    #for ii in range(num_samples-1):
+    #    dataset += torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'), transform=data_transform)
 
-    training_size = int(training_set_percentage * len(dataset))
-    if training_size >= len(dataset) or training_size <= 0:
-        training_size = int(0.8 * len(dataset))
+    training_size = int(training_set_percentage * num_samples)
+    if training_size >= num_samples or training_size <= 0:
+        training_size = int(0.8 * num_samples)
 
-    train_dataset, test_dataset = torch.utils.data.random_split(dataset, (training_size, len(dataset)-training_size))
+    training_split = int(training_set_percentage * len(dataset))
+    if training_split >= len(dataset) or training_split <= 0:
+        training_split = int(0.8 * len(dataset))
 
-    print('Data sets prepared. {} samples of size {}x{}. Training set {} images, test set {}.'.format(len(dataset), image_size, image_size, len(train_dataset), len(test_dataset)))
+    train_dataset, test_dataset = torch.utils.data.random_split(dataset, (training_split, len(dataset)-training_split))
+    train_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[train_dataset.indices], training_size, True )
+    test_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[test_dataset.indices], num_samples-training_size, True )
+    train_sampler = None
+    test_sampler = None
+
+    print('Data sets prepared. {} samples of size {}x{}. Training set {} images, test set {}.'.format(num_samples, image_size, image_size, len(train_dataset), len(test_dataset)))
 
     # Data loader
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                             batch_size=batch_size,
-                                            shuffle=True)
+                                            shuffle=False,
+                                            sampler=train_sampler)
 
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=batch_size,
-                                            shuffle=False)
+                                            shuffle=False,
+                                            sampler=test_sampler)
 
     print('Data loaded. Setting up model.')
 
@@ -197,7 +228,7 @@ def main():
         test_accuracy[epoch] = top1.avg
         test_confusion[epoch,:,:] = confusion
 
-        print('Test Accuracy of the model on the 10000 test images: {} %'.format(100 * top1.avg))
+        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.val))
         print('Classes: {}'.format(classes))
         print('Confusion matrix:\n', (confusion))
 
