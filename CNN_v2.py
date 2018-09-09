@@ -193,7 +193,7 @@ def main():
 
     print('Data loaded. Setting up model.')
 
-    model_ft = models.inception_v3(pretrained=False, num_classes=num_classes, aux_logits=False)
+    model_ft = models.resnet18(pretrained=False, num_classes=num_classes)#, aux_logits=False)
     num_ftrs = model_ft.fc.in_features
     model_ft.fc = nn.Linear(num_ftrs, num_classes)
     model = model_ft.to(device)

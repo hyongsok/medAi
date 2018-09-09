@@ -19,4 +19,5 @@ def time_left( start_time, current_iteration, max_iterations ):
     if current_iteration != 0:
         return (dt / current_iteration) * (max_iterations - current_iteration)
     else:
+        print('Iteration 0 not supported. Did you forget to add 1?')
         return None    
