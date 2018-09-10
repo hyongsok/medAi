@@ -1,11 +1,11 @@
 import os, sys
 import numpy as np
 import imageio
-from time_left import pretty_time_left, pretty_print_time
+from time_left import pretty_time_left
 import time
 
 def crop_image( im, thresh=16 ):
-    mask = (im[:,:,0]>thresh) * (im[:,:,1]>thresh) * (im[:,:,2]>thresh)
+    mask = (im[:,:,0]>thresh) | (im[:,:,1]>thresh) | (im[:,:,2]>thresh)
     lower_border = np.where(mask.sum(1)>0)[0][0]
     upper_border = np.where(mask.sum(1)>0)[0][-1]
     left_border = np.where(mask.sum(0)>0)[0][0]
@@ -24,8 +24,8 @@ def normalize_image( im, mask=True ):
 def process_folder( source, target ):
     file_list = [f for f in os.listdir(source) if os.path.isfile(os.path.join(source, f))]
     try:
-        os.makedirs(target)
-    except Exception:
+        os.makedirs(target, exist_ok=True)
+    except OSError:
         pass
     tic = time.time()
     for i, f in enumerate(file_list):
@@ -33,7 +33,7 @@ def process_folder( source, target ):
         im, mask = crop_image( im, 16 )
         #im = normalize_image( im, mask )
         imageio.imwrite(target+f+'.cropped.png', np.array(im))
-        print("{}/{} - {} left".format(i+1, len(file_list), pretty_time_left(tic, i+1, len(file_list) )))
+        print("{}: {}/{} - {} left".format(source, i+1, len(file_list), pretty_time_left(tic, i+1, len(file_list) )))
         
 if __name__ == '__main__':
     if len(sys.argv) < 3:
