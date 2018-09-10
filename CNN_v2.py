@@ -66,7 +66,7 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def train( train_loader, device, model, criterion, optimizer, epoch, start_time, batch_size ):
+def train( train_loader, device, model, criterion, optimizer, epoch, start_time ):
     start_epoch = time.time()
     losses = AverageMeter()
     top1 = AccuracyMeter()
@@ -101,7 +101,7 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time,
 
     return losses, top1   
 
-def validate( model, criterion, num_classes, test_loader, device, batch_size ):
+def validate( model, criterion, num_classes, test_loader, device ):
     model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
     with torch.no_grad():
         correct = 0
@@ -165,7 +165,8 @@ def main():
         ])
     test_transform = transforms.Compose([
             #transforms.RandomRotation(rotation_angle),
-            transforms.RandomResizedCrop(size=image_size, scale=(0.8,1.0), ratio=(0.9,1.1)),
+            transforms.Resize(size=int(image_size*1.1)),
+            transforms.CenterCrop(size=image_size),
             transforms.ToTensor(),
         ])
 
