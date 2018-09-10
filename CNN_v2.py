@@ -128,7 +128,6 @@ def validate( model, criterion, num_classes, test_loader, device ):
             print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), (predicted == labels).sum().item(), top1.avg*100, loss.item()))
             for pred, lab in zip(predicted, labels):
                 confusion[pred, lab] += 1
-        print('Test accuracy: ', str(correct/total), top1.avg)
     
     return losses, top1, confusion
 
@@ -160,7 +159,7 @@ def main():
 
     train_transform = transforms.Compose([
             #transforms.RandomRotation(rotation_angle),
-            transforms.RandomResizedCrop(size=image_size, scale=(0.08,1.0), ratio=(0.8,1.25)),
+            transforms.RandomResizedCrop(size=image_size, scale=(0.25,1.0), ratio=(1,1)),
             transforms.ToTensor(),
         ])
     test_transform = transforms.Compose([
@@ -175,7 +174,10 @@ def main():
     train_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('train path', './train'),
                                                     transform=train_transform)
     test_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('test path', './test'),
-                                                    transform=test_transform)                                                
+                                                    transform=test_transform)       
+
+    train_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('train path', './train'),
+                                                    transform=test_transform)                                         
     
     # The distribution of samples in training and test data is not equal, i.e.
     # the normal class is over represented. To get an unbiased sample (each of 
@@ -213,6 +215,7 @@ def main():
     #test_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[test_dataset.indices], num_samples-training_size, True )
     #train_sampler = None
     test_sampler = None
+    train_sampler = None
     #test_sampler = torch.utils.data.WeightedRandomSampler( np.ones(num_samples), num_samples-training_size, True )
 
     print('Data sets prepared. {} samples of size {}x{}. Training set {} images, test set {}.'.format(num_samples, image_size, image_size, len(train_dataset), len(test_dataset)))
@@ -220,7 +223,7 @@ def main():
     # Data loader
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                             batch_size=batch_size,
-                                            shuffle=False,
+                                            shuffle=True,
                                             sampler=train_sampler)
 
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
@@ -293,16 +296,17 @@ def main():
 
         current_time = time.time()
         torch.save({
-            'train_loss': train_loss,
-            'train_accuracy': train_accuracy,
-            'test_loss': test_loss,
-            'test_accuracy': test_accuracy,
-            'test_confusion': test_confusion,
+            'train_loss': train_loss[:(epoch+1)],
+            'train_accuracy': train_accuracy[:(epoch+1)],
+            'test_loss': test_loss[:(epoch+1)],
+            'test_accuracy': test_accuracy[:(epoch+1)],
+            'test_confusion': test_confusion[:(epoch+1),:,:],
             'classes': classes,
         }, config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch))
-        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}'
+        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}, validation in {}'
             .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
-                pretty_time_left(start_time, epoch+1, num_epochs)))
+                pretty_time_left(start_time, epoch+1, num_epochs), 
+                config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch)))
 
     # Test the model
     #losses, top1, confusion = validate( model, criterion, num_classes, test_loader )
