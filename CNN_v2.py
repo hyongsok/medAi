@@ -26,6 +26,21 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
+class AccuracyMeter(object):
+    """Computes and stores the correctly classified samples"""
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n):
+        self.sum += val
+        self.count += n
+        self.avg = self.sum / self.count
+
 
 def adjust_learning_rate(optimizer, epoch, initial_lr):
     """Sets the learning rate to the initial LR decayed by 10 every 50 epochs"""
@@ -54,11 +69,11 @@ def accuracy(output, target, topk=(1,)):
 def train( train_loader, device, model, criterion, optimizer, epoch, start_time, batch_size ):
     start_epoch = time.time()
     losses = AverageMeter()
-    top1 = AverageMeter()
+    top1 = AccuracyMeter()
     model.train()
 
+
     for i, (images, labels) in enumerate(train_loader):
-        print(np.unique(labels, return_counts=True))
         images = images.to(device)
         labels = labels.to(device)
 
@@ -82,7 +97,7 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time,
                 (predicted == labels).sum().item()/labels.size(0)*100,
                 pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
                 pretty_time_left(start_epoch, i+1, len(train_loader))))
-    print('Epoch learning completed. Training accuracy {:.1f}%'.format(top1.avg/batch_size*100))
+    print('Epoch learning completed. Training accuracy {:.1f}%'.format(top1.avg*100))
 
     return losses, top1   
 
@@ -92,7 +107,8 @@ def validate( model, criterion, num_classes, test_loader, device, batch_size ):
         correct = 0
         total = 0
         losses = AverageMeter()
-        top1 = AverageMeter()
+        top1 = AccuracyMeter()
+
         confusion = torch.zeros((num_classes,num_classes), dtype=torch.float)
 
         for images, labels in test_loader:
@@ -109,10 +125,10 @@ def validate( model, criterion, num_classes, test_loader, device, batch_size ):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
             top1.update((predicted == labels).sum().item(), labels.size(0))
-            print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), (predicted == labels).sum().item(), (predicted == labels).sum().item()/labels.size(0)*100, loss.item()))
+            print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), (predicted == labels).sum().item(), top1.avg*100, loss.item()))
             for pred, lab in zip(predicted, labels):
                 confusion[pred, lab] += 1
-        print('Test accuracy: ', str(correct/total), top1.avg/batch_size)
+        print('Test accuracy: ', str(correct/total), top1.avg)
     
     return losses, top1, confusion
 
@@ -137,7 +153,7 @@ def main():
 
     num_samples = config['files'].getint('samples', 1000)
     image_size = config['files'].getint('image size', 299)
-    training_set_percentage = config['files'].getint('training set percentage', 80)/100.0
+    #training_set_percentage = config['files'].getint('training set percentage', 80)/100.0
     rotation_angle = config['files'].getint('rotation angle', 180)
 
     print("Paremeters:\nEpochs:\t\t{num_epochs}\nBatch size:\t{batch_size}\nLearning rate:\t{learning_rate}".format(num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate))
@@ -182,9 +198,9 @@ def main():
     #for ii in range(num_samples-1):
     #    dataset += torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'), transform=data_transform)
 
-    training_size = int(training_set_percentage * num_samples)
-    if training_size >= num_samples or training_size <= 0:
-        training_size = int(0.8 * num_samples)
+    #training_size = int(training_set_percentage * num_samples)
+    #if training_size >= num_samples or training_size <= 0:
+    #    training_size = int(0.8 * num_samples)
 
     #training_split = int(training_set_percentage * len(dataset))
     #if training_split >= len(dataset) or training_split <= 0:
@@ -192,10 +208,11 @@ def main():
 
     #train_dataset, test_dataset = torch.utils.data.random_split(dataset, (training_split, len(dataset)-training_split))
 
-    train_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights, training_size, True )
+    train_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights, num_samples, True )
     #test_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[test_dataset.indices], num_samples-training_size, True )
     #train_sampler = None
-    #test_sampler = None
+    test_sampler = None
+    #test_sampler = torch.utils.data.WeightedRandomSampler( np.ones(num_samples), num_samples-training_size, True )
 
     print('Data sets prepared. {} samples of size {}x{}. Training set {} images, test set {}.'.format(num_samples, image_size, image_size, len(train_dataset), len(test_dataset)))
 
@@ -208,7 +225,26 @@ def main():
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=batch_size,
                                             shuffle=False,
-                                            sampler=None)
+                                            sampler=test_sampler)
+    
+    train_labels = np.zeros(len(classes))
+    test_labels = np.zeros(len(classes))
+    for _, labels in train_loader:
+        lab, count = np.unique(labels, return_counts=True)
+        train_labels[lab] += count
+    for _, labels in test_loader:
+        lab, count = np.unique(labels, return_counts=True)
+        test_labels[lab] += count
+    print('Training data:')
+    print('Source data weights:', weights)
+    print('Training samples:', train_labels.sum())
+    for key, val in train_dataset.class_to_idx.items():
+        print('{}: {} - {} samples ({:.1f}%)'.format(val, key, train_labels[int(val)], train_labels[int(val)]/train_labels.sum()*100))
+        
+    print('Test data:')
+    print('Test samples:', test_labels.sum())
+    for key, val in train_dataset.class_to_idx.items():
+        print('{}: {} - {} samples ({:.1f}%)'.format(val, key, test_labels[int(val)], test_labels[int(val)]/test_labels.sum()*100))
 
     print('Data loaded. Setting up model.')
 
@@ -236,14 +272,14 @@ def main():
 
         losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch, start_time, batch_size )
         train_loss[epoch] = losses.avg
-        train_accuracy[epoch] = top1.avg/batch_size
+        train_accuracy[epoch] = top1.avg
         
         losses, top1, confusion = validate( model, criterion, num_classes, test_loader, device, batch_size )
         test_loss[epoch] = losses.avg
-        test_accuracy[epoch] = top1.avg/batch_size
+        test_accuracy[epoch] = top1.avg
         test_confusion[epoch,:,:] = confusion
 
-        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg/batch_size))
+        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg))
         print('Classes: {}'.format(classes))
         print('Confusion matrix:\n', (confusion))
 
