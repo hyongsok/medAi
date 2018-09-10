@@ -157,16 +157,20 @@ def main():
 
     print("Paremeters:\nEpochs:\t\t{num_epochs}\nBatch size:\t{batch_size}\nLearning rate:\t{learning_rate}".format(num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate))
 
+    normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
+                                     std=[0.2287, 0.1286, 0.0723])
     train_transform = transforms.Compose([
             #transforms.RandomRotation(rotation_angle),
             transforms.RandomResizedCrop(size=image_size, scale=(0.25,1.0), ratio=(1,1)),
             transforms.ToTensor(),
+            normalize,
         ])
     test_transform = transforms.Compose([
             #transforms.RandomRotation(rotation_angle),
             transforms.Resize(size=int(image_size*1.1)),
             transforms.CenterCrop(size=image_size),
             transforms.ToTensor(),
+            normalize,
         ])
 
     #dataset = torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'),
@@ -174,10 +178,7 @@ def main():
     train_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('train path', './train'),
                                                     transform=train_transform)
     test_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('test path', './test'),
-                                                    transform=test_transform)       
-
-    train_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('train path', './train'),
-                                                    transform=test_transform)                                         
+                                                    transform=test_transform)                                        
     
     # The distribution of samples in training and test data is not equal, i.e.
     # the normal class is over represented. To get an unbiased sample (each of 
@@ -215,7 +216,6 @@ def main():
     #test_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[test_dataset.indices], num_samples-training_size, True )
     #train_sampler = None
     test_sampler = None
-    train_sampler = None
     #test_sampler = torch.utils.data.WeightedRandomSampler( np.ones(num_samples), num_samples-training_size, True )
 
     print('Data sets prepared. {} samples of size {}x{}. Training set {} images, test set {}.'.format(num_samples, image_size, image_size, len(train_dataset), len(test_dataset)))
@@ -223,7 +223,7 @@ def main():
     # Data loader
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                             batch_size=batch_size,
-                                            shuffle=True,
+                                            shuffle=False,
                                             sampler=train_sampler)
 
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
