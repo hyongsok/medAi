@@ -28,8 +28,8 @@ class AverageMeter(object):
 
 
 def adjust_learning_rate(optimizer, epoch, initial_lr):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = initial_lr * (0.1 ** (epoch // 30))
+    """Sets the learning rate to the initial LR decayed by 10 every 50 epochs"""
+    lr = initial_lr * (0.1 ** (epoch // 50))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
@@ -51,7 +51,7 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def train( train_loader, device, model, criterion, optimizer, epoch, start_time ):
+def train( train_loader, device, model, criterion, optimizer, epoch, start_time, batch_size ):
     start_epoch = time.time()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -70,8 +70,6 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time 
         losses.update(loss.item(), images.size(0))
         _, predicted = torch.max(outputs.data, 1)
         top1.update((predicted == labels).sum().item(), labels.size(0))
-        print('DEBUG:', labels.size(0), (predicted == labels).sum().item(), loss.item(), images.size(0))
-
 
         # Backward and optimize
         optimizer.zero_grad()
@@ -79,13 +77,16 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time 
         optimizer.step()
 
         current_time = time.time()
-        print('Epoch [{}], Step [{}/{}], Loss: {:.4f}, time since start {}, time in epoch {}, epoch remaining {}'
-            .format(epoch + 1, i + 1, len(train_loader), loss.item(), pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
+        print('Epoch [{}], Step [{}/{}], Loss: {:.4f},  Samples: {}, Correct: {} ({:.1f}%), time since start {}, time in epoch {}, epoch remaining {}'
+            .format(epoch + 1, i + 1, len(train_loader), loss.item(), labels.size(0), (predicted == labels).sum().item(), 
+                (predicted == labels).sum().item()/labels.size(0)*100,
+                pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
                 pretty_time_left(start_epoch, i+1, len(train_loader))))
+    print('Epoch learning completed. Training accuracy {:.1f}%'.format(top1.avg/batch_size*100))
 
     return losses, top1   
 
-def validate( model, criterion, num_classes, test_loader, device ):
+def validate( model, criterion, num_classes, test_loader, device, batch_size ):
     model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
     with torch.no_grad():
         correct = 0
@@ -108,10 +109,10 @@ def validate( model, criterion, num_classes, test_loader, device ):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
             top1.update((predicted == labels).sum().item(), labels.size(0))
-            print('DEBUG:', labels.size(0), (predicted == labels).sum().item(), loss.item(), images.size(0))
+            print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), (predicted == labels).sum().item(), (predicted == labels).sum().item()/labels.size(0)*100, loss.item()))
             for pred, lab in zip(predicted, labels):
                 confusion[pred, lab] += 1
-        print('Acuracy: ', str(correct/total))
+        print('Test accuracy: ', str(correct/total), top1.avg/batch_size)
     
     return losses, top1, confusion
 
@@ -141,25 +142,42 @@ def main():
 
     print("Paremeters:\nEpochs:\t\t{num_epochs}\nBatch size:\t{batch_size}\nLearning rate:\t{learning_rate}".format(num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate))
 
-    data_transform = transforms.Compose([
+    train_transform = transforms.Compose([
             #transforms.RandomRotation(rotation_angle),
             transforms.RandomResizedCrop(size=image_size, scale=(0.08,1.0), ratio=(0.8,1.25)),
             transforms.ToTensor(),
         ])
+    test_transform = transforms.Compose([
+            #transforms.RandomRotation(rotation_angle),
+            transforms.RandomResizedCrop(size=image_size, scale=(0.8,1.0), ratio=(0.9,1.1)),
+            transforms.ToTensor(),
+        ])
 
-    dataset = torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'),
-                                                    transform=data_transform)
-    classes = dataset.class_to_idx
-    class_distribution = np.array(dataset.imgs)[:,1].astype(int)
+    #dataset = torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'),
+    #                                                transform=data_transform)
+    train_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('train path', './train'),
+                                                    transform=train_transform)
+    test_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('test path', './test'),
+                                                    transform=test_transform)                                                
+    
+    # The distribution of samples in training and test data is not equal, i.e.
+    # the normal class is over represented. To get an unbiased sample (each of 
+    # the 4 classes has probability 0.25) we calculate the probability of each
+    # class in the source data (=weights) then we invert the weights and assign
+    # to each sample in the class the inverted probability (normalized to 1 over
+    # all samples) and use this as the probability for the weighted random sampler
+    classes = train_dataset.class_to_idx
+    class_distribution = np.array(train_dataset.imgs)[:,1].astype(int)
     weights = np.zeros(len(classes))
     for ii in range(len(classes)):
         weights[ii] = np.sum(class_distribution == ii)/len(class_distribution)
+
     inverted_weights = (1/weights)/np.sum(1/weights)
     sampling_weights = np.zeros(class_distribution.shape, dtype=np.float)
     for ii in range(len(classes)):
         sampling_weights[class_distribution == ii] = inverted_weights[ii]
     sampling_weights /= sampling_weights.sum()
-    print('Weights:', inverted_weights)
+    #print('Weights:', inverted_weights)
 
     #for ii in range(num_samples-1):
     #    dataset += torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'), transform=data_transform)
@@ -168,13 +186,14 @@ def main():
     if training_size >= num_samples or training_size <= 0:
         training_size = int(0.8 * num_samples)
 
-    training_split = int(training_set_percentage * len(dataset))
-    if training_split >= len(dataset) or training_split <= 0:
-        training_split = int(0.8 * len(dataset))
+    #training_split = int(training_set_percentage * len(dataset))
+    #if training_split >= len(dataset) or training_split <= 0:
+    #    training_split = int(0.8 * len(dataset))
 
-    train_dataset, test_dataset = torch.utils.data.random_split(dataset, (training_split, len(dataset)-training_split))
-    train_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[train_dataset.indices], training_size, True )
-    test_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[test_dataset.indices], num_samples-training_size, True )
+    #train_dataset, test_dataset = torch.utils.data.random_split(dataset, (training_split, len(dataset)-training_split))
+
+    train_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights, training_size, True )
+    #test_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[test_dataset.indices], num_samples-training_size, True )
     #train_sampler = None
     #test_sampler = None
 
@@ -189,7 +208,7 @@ def main():
     test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
                                             batch_size=batch_size,
                                             shuffle=False,
-                                            sampler=test_sampler)
+                                            sampler=None)
 
     print('Data loaded. Setting up model.')
 
@@ -215,16 +234,16 @@ def main():
         start_epoch = time.time()
         adjust_learning_rate(optimizer, epoch, learning_rate)
 
-        losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch, start_time )
+        losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch, start_time, batch_size )
         train_loss[epoch] = losses.avg
         train_accuracy[epoch] = top1.avg/batch_size
         
-        losses, top1, confusion = validate( model, criterion, num_classes, test_loader, device )
+        losses, top1, confusion = validate( model, criterion, num_classes, test_loader, device, batch_size )
         test_loss[epoch] = losses.avg
         test_accuracy[epoch] = top1.avg/batch_size
         test_confusion[epoch,:,:] = confusion
 
-        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg))
+        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg/batch_size))
         print('Classes: {}'.format(classes))
         print('Confusion matrix:\n', (confusion))
 
