@@ -271,11 +271,11 @@ def main():
         start_epoch = time.time()
         adjust_learning_rate(optimizer, epoch, learning_rate)
 
-        losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch, start_time, batch_size )
+        losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch, start_time )
         train_loss[epoch] = losses.avg
         train_accuracy[epoch] = top1.avg
         
-        losses, top1, confusion = validate( model, criterion, num_classes, test_loader, device, batch_size )
+        losses, top1, confusion = validate( model, criterion, num_classes, test_loader, device )
         test_loss[epoch] = losses.avg
         test_accuracy[epoch] = top1.avg
         test_confusion[epoch,:,:] = confusion
