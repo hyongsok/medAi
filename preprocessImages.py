@@ -102,8 +102,8 @@ def process_folder( source, target, inner ):
     tic = time.time()
     for i, f in enumerate(file_list):
         print(os.path.join(source, f))
-        if os.path.exists(os.path.join(target, f)):
-            print('skipping', os.path.join(target, f))
+        if os.path.exists(os.path.join(target, f)+'.cropped.png'):
+            print('skipping', os.path.join(target, f)+'.cropped.png')
             continue
         im = imageio.imread(os.path.join(source, f))
         im = crop_image( im, inner )
