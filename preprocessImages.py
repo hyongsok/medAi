@@ -19,7 +19,7 @@ def crop_image_old( im, thresh=16 ):
 def crop_image( im, inner_box=False ):
     boxes = find_retina_boxes( im )
     if boxes is None:
-        return
+        return None
     x, y, r_in, r_out = boxes
     img_y, img_x, _ = im.shape
 
@@ -86,6 +86,7 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=50, 
         if minRadius > (0.4*min(im.shape[:2])):
             print('Trying to set the minimum radius to 0.4 of shortest patch size. Wish me luck.')
             return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=int(0.4*min(im.shape[:2])-1), maxRadius=maxRadius)
+
         return None
 
 
@@ -108,10 +109,14 @@ def process_folder( source, target, inner ):
         im = imageio.imread(os.path.join(source, f))
         im = crop_image( im, inner )
         #im = normalize_image( im, mask )
+        if im is None:
+            warnings.warn('Image {} could not be cropped.'.format(os.path.join(source, f)))
+            with open('warn.log', 'a') as f:
+                f.write('{:Y-%m-%d %H:%M}: {}\n'.format(time.time(), os.path.join(source, f)))
         try:
             imageio.imwrite(os.path.join(target, f)+'.cropped.png', np.array(im))
         except ValueError as v:
-            print('Could not write {}\nAdditional info:'.format(os.path.join(target, f)), im.shape, v)
+            print('Could not write {}\nAdditional info:'.format(os.path.join(target, f)), v)
         print("{}: {}/{} - {} left".format(os.path.join(source, f), i+1, len(file_list), pretty_time_left(tic, i+1, len(file_list) )))
         
 if __name__ == '__main__':
