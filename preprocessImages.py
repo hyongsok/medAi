@@ -111,8 +111,8 @@ def process_folder( source, target, inner ):
         #im = normalize_image( im, mask )
         if im is None:
             warnings.warn('Image {} could not be cropped.'.format(os.path.join(source, f)))
-            with open('warn.log', 'a') as f:
-                f.write('{:Y-%m-%d %H:%M}: {}\n'.format(time.time(), os.path.join(source, f)))
+            with open('warn.log', 'a') as fout:
+                fout.write('{:Y-%m-%d %H:%M}: {}\n'.format(time.time(), os.path.join(source, f)))
         try:
             imageio.imwrite(os.path.join(target, f)+'.cropped.png', np.array(im))
         except ValueError as v:
