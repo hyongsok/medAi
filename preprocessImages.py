@@ -102,10 +102,16 @@ def process_folder( source, target, inner ):
     tic = time.time()
     for i, f in enumerate(file_list):
         print(os.path.join(source, f))
+        if os.path.exists(os.path.join(target, f)):
+            print('skipping', os.path.join(target, f))
+            continue
         im = imageio.imread(os.path.join(source, f))
         im = crop_image( im, inner )
         #im = normalize_image( im, mask )
-        imageio.imwrite(os.path.join(target, f)+'.cropped.png', np.array(im))
+        try:
+            imageio.imwrite(os.path.join(target, f)+'.cropped.png', np.array(im))
+        except ValueError as v:
+            print('Could not write {}\nAdditional info:'.format(os.path.join(target, f)), im.shape, v)
         print("{}: {}/{} - {} left".format(os.path.join(source, f), i+1, len(file_list), pretty_time_left(tic, i+1, len(file_list) )))
         
 if __name__ == '__main__':
