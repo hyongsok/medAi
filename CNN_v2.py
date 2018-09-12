@@ -175,12 +175,10 @@ def main():
             normalize,
         ])
 
-    #dataset = torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'),
-    #                                                transform=data_transform)
     train_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('train path', './train'),
                                                     transform=train_transform)
     test_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('test path', './test'),
-                                                    transform=test_transform)                                        
+                                                    transform=test_transform)
     
     # The distribution of samples in training and test data is not equal, i.e.
     # the normal class is over represented. To get an unbiased sample (each of 
