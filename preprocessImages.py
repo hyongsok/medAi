@@ -5,6 +5,7 @@ from time_left import pretty_time_left
 import time
 import cv2
 import warnings
+import datetime
 
 def crop_image_old( im, thresh=16 ):
     mask = (im[:,:,0]>thresh) | (im[:,:,1]>thresh) | (im[:,:,2]>thresh)
@@ -112,7 +113,7 @@ def process_folder( source, target, inner ):
         if im is None:
             warnings.warn('Image {} could not be cropped.'.format(os.path.join(source, f)))
             with open('warn.log', 'a') as fout:
-                fout.write('{:Y-%m-%d %H:%M}: {}\n'.format(time.time(), os.path.join(source, f)))
+                fout.write('{:Y-%m-%d %H:%M}: {}\n'.format(datetime.datetime.now(), os.path.join(source, f)))
         try:
             imageio.imwrite(os.path.join(target, f)+'.cropped.png', np.array(im))
         except ValueError as v:
