@@ -42,13 +42,6 @@ class AccuracyMeter(object):
         self.avg = self.sum / self.count
 
 
-def adjust_learning_rate(optimizer, epoch, initial_lr):
-    """Sets the learning rate to the initial LR decayed by 10 every 50 epochs"""
-    lr = initial_lr * (0.1 ** (epoch // 50))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     with torch.no_grad():
@@ -71,7 +64,6 @@ def train( train_loader, device, model, criterion, optimizer, epoch, start_time 
     losses = AverageMeter()
     top1 = AccuracyMeter()
     model.train()
-
 
     for i, (images, labels) in enumerate(train_loader):
         images = images.to(device)
@@ -152,21 +144,31 @@ def main():
 
     num_samples = config['files'].getint('samples', 1000)
     image_size = config['files'].getint('image size', 299)
-    #training_set_percentage = config['files'].getint('training set percentage', 80)/100.0
-    rotation_angle = config['files'].getint('rotation angle', 180)
 
     print("Paremeters:\nEpochs:\t\t{num_epochs}\nBatch size:\t{batch_size}\nLearning rate:\t{learning_rate}".format(num_epochs=num_epochs, batch_size=batch_size, learning_rate=learning_rate))
 
+    # normalization factors for the DMR dataset were manually derived
     normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
                                      std=[0.2287, 0.1286, 0.0723])
+
+    rotation_angle = config['transform'].getint('rotation angle', 180)
+    rotation = transforms.RandomRotation(rotation_angle)
+    
+    brightness = config['transform'].getint('brightness', 0)
+    contrast = config['transform'].getint('contrast', 0)
+    saturation = config['transform'].getint('saturation', 0)
+    hue = config['transform'].getint('hue', 0)
+    color_jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
+    
     train_transform = transforms.Compose([
-            #transforms.RandomRotation(rotation_angle),
+            color_jitter,
+            rotation,
+            transforms.RandomHorizontalFlip(),
             transforms.RandomResizedCrop(size=image_size, scale=(0.25,1.0), ratio=(1,1)),
             transforms.ToTensor(),
             normalize,
         ])
     test_transform = transforms.Compose([
-            #transforms.RandomRotation(rotation_angle),
             transforms.Resize(size=int(image_size*1.1)),
             transforms.CenterCrop(size=image_size),
             transforms.ToTensor(),
@@ -197,26 +199,10 @@ def main():
     for ii in range(len(classes)):
         sampling_weights[class_distribution == ii] = inverted_weights[ii]
     sampling_weights /= sampling_weights.sum()
-    #print('Weights:', inverted_weights)
 
-    #for ii in range(num_samples-1):
-    #    dataset += torchvision.datasets.ImageFolder(root=config['files'].get('data path', './full'), transform=data_transform)
-
-    #training_size = int(training_set_percentage * num_samples)
-    #if training_size >= num_samples or training_size <= 0:
-    #    training_size = int(0.8 * num_samples)
-
-    #training_split = int(training_set_percentage * len(dataset))
-    #if training_split >= len(dataset) or training_split <= 0:
-    #    training_split = int(0.8 * len(dataset))
-
-    #train_dataset, test_dataset = torch.utils.data.random_split(dataset, (training_split, len(dataset)-training_split))
 
     train_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights, num_samples, True )
-    #test_sampler = torch.utils.data.WeightedRandomSampler( sampling_weights[test_dataset.indices], num_samples-training_size, True )
-    #train_sampler = None
     test_sampler = None
-    #test_sampler = torch.utils.data.WeightedRandomSampler( np.ones(num_samples), num_samples-training_size, True )
 
     print('Data sets prepared. {} samples of size {}x{}. Training set {} images, test set {}.'.format(num_samples, image_size, image_size, len(train_dataset), len(test_dataset)))
 
@@ -272,7 +258,7 @@ def main():
     start_time = time.time()
     for epoch in range(num_epochs):
         start_epoch = time.time()
-        adjust_learning_rate(optimizer, epoch, learning_rate)
+        #adjust_learning_rate(optimizer, epoch, learning_rate)
 
         losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch, start_time )
         train_loss[epoch] = losses.avg
@@ -283,7 +269,7 @@ def main():
         test_accuracy[epoch] = top1.avg
         test_confusion[epoch,:,:] = confusion
 
-        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg))
+        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg*100))
         print('Classes: {}'.format(classes))
         print('Confusion matrix:\n', (confusion))
 
@@ -311,7 +297,7 @@ def main():
     # Test the model
     #losses, top1, confusion = validate( model, criterion, num_classes, test_loader )
 
-      # Save the model checkpoint
+    # Save the model checkpoint
     torch.save({
         'epoch': num_epochs + 1,
         'state_dict': model.state_dict(),
