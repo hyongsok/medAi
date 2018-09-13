@@ -378,7 +378,7 @@ def main():
     # Starting training & evaluation
     start_time = time.time()
     for epoch in range(start_epoch, num_epochs):
-        start_epoch = time.time()
+        start_time_epoch = time.time()
 
         # Train the model and record training loss & accuracy
         losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch )
@@ -407,7 +407,7 @@ def main():
         # Output on progress
         current_time = time.time()
         print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}, validation in {}'
-            .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_epoch), 
+            .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_time_epoch), 
                 pretty_time_left(start_time, epoch+1-start_epoch, num_epochs-start_epoch), 
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1)))
 
