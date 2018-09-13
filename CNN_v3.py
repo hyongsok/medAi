@@ -261,7 +261,7 @@ def print_dataset_stats( dataset, loader ):
     for key, val in classes.items():
         print('{}: {} - {} samples ({:.1f}%)'.format(val, key, labels[int(val)], labels[int(val)]/labels.sum()*100))
         
-def get_deep_learning_model( config, num_classes ):
+def get_deep_learning_model( config, num_classes, device ):
     learning_rate = config['hyperparameter'].getfloat('learning rate', 0.01)
     
     # Deep learning model resnet18 without prior training on ImageNet data.
@@ -272,12 +272,13 @@ def get_deep_learning_model( config, num_classes ):
     # Reducing the output layer to num_classes
     num_ftrs = model_ft.fc.in_features
     model_ft.fc = nn.Linear(num_ftrs, num_classes)
+    model = model_ft.to(device)
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model_ft.parameters(), lr=learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
-    return criterion, optimizer, model_ft
+    return criterion, optimizer, model
 
 def load_state( model, optimizer, config ):
     checkpoint = torch.load(config['input'].get('checkpoint'))
@@ -360,14 +361,14 @@ def main():
     print('Data loaded. Setting up model.')
 
     # Initialize the model
-    criterion, optimizer, model_ft = get_deep_learning_model( config, num_classes  )
+    criterion, optimizer, model_ft = get_deep_learning_model( config, num_classes, device  )
     
     # loading previous models
     if config['input'].getboolean('resume', False):
         model_ft, optimizer, start_epoch = load_state( model_ft, optimizer, config )
 
     # transfer the model to the computation device, e.g. GPU
-    model = model_ft.to(device)    
+    model = model_ft
     print('Model set up. Ready to train.')
 
     # Performance meters initalized (either empty or from file)
