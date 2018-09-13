@@ -215,24 +215,25 @@ def main():
                                             shuffle=False,
                                             sampler=test_sampler)
     
-    train_labels = np.zeros(len(classes))
-    test_labels = np.zeros(len(classes))
-    for _, labels in train_loader:
-        lab, count = np.unique(labels, return_counts=True)
-        train_labels[lab] += count
-    for _, labels in test_loader:
-        lab, count = np.unique(labels, return_counts=True)
-        test_labels[lab] += count
-    print('Training data:')
-    print('Source data weights:', weights)
-    print('Training samples:', train_labels.sum())
-    for key, val in train_dataset.class_to_idx.items():
-        print('{}: {} - {} samples ({:.1f}%)'.format(val, key, train_labels[int(val)], train_labels[int(val)]/train_labels.sum()*100))
-        
-    print('Test data:')
-    print('Test samples:', test_labels.sum())
-    for key, val in train_dataset.class_to_idx.items():
-        print('{}: {} - {} samples ({:.1f}%)'.format(val, key, test_labels[int(val)], test_labels[int(val)]/test_labels.sum()*100))
+    if config['files'].getboolean('show patch stats', False):
+        train_labels = np.zeros(len(classes))
+        test_labels = np.zeros(len(classes))
+        for _, labels in train_loader:
+            lab, count = np.unique(labels, return_counts=True)
+            train_labels[lab] += count
+        for _, labels in test_loader:
+            lab, count = np.unique(labels, return_counts=True)
+            test_labels[lab] += count
+        print('Training data:')
+        print('Source data weights:', weights)
+        print('Training samples:', train_labels.sum())
+        for key, val in train_dataset.class_to_idx.items():
+            print('{}: {} - {} samples ({:.1f}%)'.format(val, key, train_labels[int(val)], train_labels[int(val)]/train_labels.sum()*100))
+            
+        print('Test data:')
+        print('Test samples:', test_labels.sum())
+        for key, val in train_dataset.class_to_idx.items():
+            print('{}: {} - {} samples ({:.1f}%)'.format(val, key, test_labels[int(val)], test_labels[int(val)]/test_labels.sum()*100))
 
     print('Data loaded. Setting up model.')
 
