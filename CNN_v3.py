@@ -4,7 +4,7 @@ import torchvision
 import torchvision.transforms as transforms
 from torchvision import models
 import configparser
-import sys
+import sys, os, glob
 import time
 from time_left import pretty_time_left, pretty_print_time
 import numpy as np
@@ -306,6 +306,14 @@ def initialize_meters( config, start_epoch, num_epochs, num_classes ):
     return train_loss, train_accuracy, test_loss, test_accuracy, test_confusion
 
 
+def reduce_to_2_classes( confusion, class_groups ):
+    confusion_2class = np.vstack((np.vstack((confusion[:,class_groups[0]].sum(1),
+                                         confusion[:,class_groups[1]].sum(1)))[:,class_groups[0]].sum(1), 
+                                np.vstack((confusion[:,class_groups[0]].sum(1),
+                                         confusion[:,class_groups[1]].sum(1)))[:,class_groups[1]].sum(1))
+                                )
+    return confusion_2class
+
 def save_state( model, optimizer, num_epochs, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, classes, filename ):
     torch.save({
         'epoch': num_epochs,
@@ -377,6 +385,7 @@ def main():
 
     # Starting training & evaluation
     start_time = time.time()
+    best_accuracy = 0
     for epoch in range(start_epoch, num_epochs):
         start_time_epoch = time.time()
 
@@ -394,12 +403,25 @@ def main():
         print('Classes: {}'.format(classes))
         print('Confusion matrix:\n', (confusion))
 
+        confusion_2class = reduce_to_2_classes( confusion, [(1,3), (0,2,4)])
+        print('Accuracy: {:.1f}%'.format(np.diag(confusion_2class).sum()/confusion_2class.sum()*100))
+        print(confusion_2class)
+        print('Sensitivity: {:.1f}%'.format(confusion_2class[1,1]/confusion_2class[:,1].sum()*100))
+        print('Specificity: {:.1f}%'.format(confusion_2class[0,0]/confusion_2class[:,0].sum()*100))
+
         if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
             save_state( model, optimizer, epoch+1, train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], classes, 
                         config['output'].get('filename', 'model')+'_after_epoch_{}'.format(epoch+1)+config['output'].get('extension', '.ckpt') )
         
+        if top1.avg > best_accuracy:
+            save_state( model, optimizer, epoch+1, train_loss[:(epoch+1)], 
+                        train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], classes, 
+                        config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
+            best_accuracy = top1.avg
+
         save_performance( train_loss[:(epoch+1)], train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                 test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], classes, 
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1) )
@@ -415,6 +437,19 @@ def main():
     # Save the model checkpoint
     save_state( model, optimizer, num_epochs, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, classes,
                 config['output'].get('filename', 'model')+config['output'].get('extension', '.ckpt') )
+
+    # cleanup
+    print('Cleaning up...')
+    delete_files = glob.glob(config['output'].get('filename', 'model')+'_validation_after_epoch_*.dat')
+    if config['output'].getboolean('save during training', False):
+        delete_files += glob.glob(config['output'].get('filename', 'model')+'_after_epoch_*'+config['output'].get('extension', '.ckpt'))
+    
+    for f in delete_files:
+        try:
+            print('deleting', os.path.join(os.path.abspath(os.curdir), f))
+            os.remove(os.path.join(os.path.abspath(os.curdir), f))
+        except OSError as e:
+            print(e)
 
 if __name__ == '__main__':
     main()
