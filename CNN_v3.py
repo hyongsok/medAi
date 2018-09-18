@@ -10,7 +10,18 @@ from time_left import pretty_time_left, pretty_print_time
 import numpy as np
 
 class AverageMeter(object):
-    """Computes and stores the average and current value"""
+    """Computes and stores the average and current value
+    
+    Usage: 
+    am = AverageMeter()
+    am.update(123)
+    am.update(456)
+    am.update(789)
+    
+    last_value = am.val
+    average_value = am.avg
+    
+    am.reset() #set all to 0"""
     def __init__(self):
         self.val = 0
         self.avg = 0
@@ -30,7 +41,12 @@ class AverageMeter(object):
         self.avg = self.sum / self.count
 
 class AccuracyMeter(object):
-    """Computes and stores the correctly classified samples"""
+    """Computes and stores the correctly classified samples
+    
+    Usage: pass the number of correct (val) and the total number (n)
+    of samples to update(val, n). Then .avg contains the 
+    percentage correct.
+    """
     def __init__(self):
         self.avg = 0
         self.sum = 0
@@ -63,15 +79,15 @@ def accuracy(output, target, topk=(1,)):
         return res
 
 
-def train( train_loader, device, model, criterion, optimizer, epoch ):
+def train( model, criterion, optimizer, epoch, train_loader, device ):
     '''Deep learning training function to optimize the network with all images in the train_loader.
     
     Arguments:
-        train_loader {torch.utils.data.DataLoader} -- contains the data for training
-        device {torch.device} -- target computation device
         model {torch.nn.Module} -- the deep neural network
         criterion {torch.nn._Loss} -- the loss function, e.g. cross entropy or negative log likelihood
         optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
+        train_loader {torch.utils.data.DataLoader} -- contains the data for training
+        device {torch.device} -- target computation device        
         epoch {int} -- the number of the current epoch (for console output only)
     
     Returns:
@@ -113,17 +129,19 @@ def train( train_loader, device, model, criterion, optimizer, epoch ):
     return losses, top1   
 
 def validate( model, criterion, num_classes, test_loader, device ):
-    '''[summary]
+    '''Evaluates the model given the criterion and the data in test_loader
     
     Arguments:
-        model {[type]} -- [description]
-        criterion {[type]} -- [description]
-        num_classes {[type]} -- [description]
-        test_loader {[type]} -- [description]
-        device {[type]} -- [description]
+        model {torch.nn.Module} -- the deep neural network
+        criterion {torch.nn._Loss} -- the loss function, e.g. cross entropy or negative log likelihood
+        num_classes {int} -- the number of test classes
+        train_loader {torch.utils.data.DataLoader} -- contains the data for training
+        device {torch.device} -- target computation device        
     
     Returns:
-        [type] -- [description]
+        AverageMeter -- training loss
+        AccuracyMeter -- training accuracy
+        numpy.Array -- [num_classes, num_classes] confusion matrix, columns are true classes, rows predictions
     '''
 
     model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
@@ -157,13 +175,14 @@ def validate( model, criterion, num_classes, test_loader, device ):
 
 
 def load_datasets( config ):
-    '''[summary]
+    '''Loads the data sets from the path given in the config file
     
     Arguments:
-        config {[type]} -- [description]
+        config {configparser.ConfigParser} -- the configuration read from ini file
     
     Returns:
-        [type] -- [description]
+        torch.utils.data.Dataset -- training data
+        torch.utils.data.Dataset -- Test data
     '''
 
     image_size = config['files'].getint('image size', 299)
@@ -390,7 +409,7 @@ def main():
         start_time_epoch = time.time()
 
         # Train the model and record training loss & accuracy
-        losses, top1 = train( train_loader, device, model, criterion, optimizer, epoch )
+        losses, top1 = train( model, criterion, optimizer, epoch, train_loader, device )
         train_loss[epoch] = losses.avg
         train_accuracy[epoch] = top1.avg
         
