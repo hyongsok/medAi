@@ -230,10 +230,11 @@ all samples) and use this as the probability for the weighted random sampler.
     
     Arguments:
         dataset {torch.util.data.Dataset} -- the dataset to sample from
-        num_samples {[type]} -- [description]
+        num_samples {int} -- number of samples to be drawn bei the sampler
 
     Returns:
-        [type] -- [description]
+        torch.util.data.Sampler -- Sampler object from which patches for the training
+        or evaluation can be drawn
     '''
     classes = dataset.class_to_idx
     class_distribution = np.array(dataset.imgs)[:,1].astype(int)
@@ -252,6 +253,24 @@ all samples) and use this as the probability for the weighted random sampler.
     return sampler
 
 def get_dataloader( train_dataset, test_dataset, config ):
+    """Generates the dataloader (and their respective samplers) for
+    training and test data from the training and test data sets.
+    Sampler for training data is an unbiased sampler for all classes
+    in the training set, i.e. even if the class distribution in the
+    data set is biased, all classes are equally contained in the sampling.
+    No specific sampler for test data.
+    
+    Arguments:
+        train_dataset {torch.util.data.Dataset} -- training data
+        test_dataset {torch.util.data.Dateset} -- test data
+        config {configparser.ConfigParser} -- configuration file containing 
+        batch size and number of samples
+    
+    Returns:
+        torch.util.data.DataLoader -- loader for training data
+        torch.util.data.DataLoader -- loader for test data
+    """
+
     batch_size = config['hyperparameter'].getint('batch size', 10)
     num_samples = config['files'].getint('samples', 1000)
     
@@ -271,6 +290,17 @@ def get_dataloader( train_dataset, test_dataset, config ):
     return train_loader, test_loader
 
 def print_dataset_stats( dataset, loader ):
+    """Debug / support function. Iterates through all samples in the dataloader
+    and prints the distribution of classes.
+    This really reads all data from the data set and creates all samples. Depending
+    on your hardware and sample size this can take time. A lot of time. Use only for
+    debugging or analysis.
+    
+    Arguments:
+        dataset {torch.util.data.DataSet} -- Source data set, required for class labels
+        loader {torch.util.data.DataLoader} -- Data loader to evaluate
+    """
+
     classes = dataset.class_to_idx
     labels = np.zeros(len(classes))
     for _, labels in loader:
@@ -281,6 +311,19 @@ def print_dataset_stats( dataset, loader ):
         print('{}: {} - {} samples ({:.1f}%)'.format(val, key, labels[int(val)], labels[int(val)]/labels.sum()*100))
         
 def get_deep_learning_model( config, num_classes, device ):
+    """Generates the model, criterion, and optimizer
+    
+    Arguments:
+        config {configparser.ConfigParser} -- configuration file
+        num_classes {int} -- number of target classes (= output dimensions) of the model
+        device {torch.device} -- target device (cpu/gpu/...)
+    
+    Returns:
+        torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
+        torch.nn._Loss -- the loss function, e.g. cross entropy or negative log likelihood
+        torch.nn.Module -- the deep neural network  
+    """
+
     learning_rate = config['hyperparameter'].getfloat('learning rate', 0.01)
     
     # Deep learning model resnet18 without prior training on ImageNet data.
@@ -300,6 +343,20 @@ def get_deep_learning_model( config, num_classes, device ):
     return criterion, optimizer, model
 
 def load_state( model, optimizer, config ):
+    """Load the state stored in the config into the given model and optimizer.
+    Model and optimizer must match exactly to the stored model, will crash
+    otherwise.
+    
+    Arguments:
+        model {torch.nn.Module} -- the deep neural network
+        optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
+        config {configparser.ConfigParser} -- configuration file
+    
+    Returns:
+        torch.nn.Module -- the deep neural network      
+        torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
+        int -- number of epochs trained
+    """
     checkpoint = torch.load(config['input'].get('checkpoint'))
     start_epoch = checkpoint['epoch']
     model.load_state_dict(checkpoint['state_dict'])
