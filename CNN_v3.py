@@ -357,12 +357,17 @@ def load_state( model, optimizer, config ):
         torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
         int -- number of epochs trained
     """
-    checkpoint = torch.load(config['input'].get('checkpoint'))
-    start_epoch = checkpoint['epoch']
-    model.load_state_dict(checkpoint['state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    print("=> loaded checkpoint '{}' (epoch {})"
-            .format(config['input'].get('checkpoint'), checkpoint['epoch']))
+    try:
+        checkpoint = torch.load(config['input'].get('checkpoint'))
+        start_epoch = checkpoint['epoch']
+        model.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        print("=> loaded checkpoint '{}' (epoch {})"
+                .format(config['input'].get('checkpoint'), checkpoint['epoch']))
+    except OSError, ValueError as e:
+        print("Exception occurred. Did not load model, starting from scratch.\n", e)
+        return model, optimizer, 0
+
     return model, optimizer, start_epoch
 
 def initialize_meters( config, start_epoch, num_epochs, num_classes ):
