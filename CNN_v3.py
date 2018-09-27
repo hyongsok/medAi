@@ -364,7 +364,7 @@ def load_state( model, optimizer, config ):
         optimizer.load_state_dict(checkpoint['optimizer'])
         print("=> loaded checkpoint '{}' (epoch {})"
                 .format(config['input'].get('checkpoint'), checkpoint['epoch']))
-    except OSError, ValueError as e:
+    except OSError as e:
         print("Exception occurred. Did not load model, starting from scratch.\n", e)
         return model, optimizer, 0
 
@@ -457,7 +457,7 @@ def save_state( model, optimizer, num_epochs, train_loss, train_accuracy, test_l
     }, filename)
 
 def save_performance( train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, classes, filename ):
-        """Save the current model performance, e.g. for visualization
+    """Save the current model performance, e.g. for visualization
     
     Arguments:
         train_loss {torch.Array} -- tensor of training losses
@@ -475,7 +475,7 @@ def save_performance( train_loss, train_accuracy, test_loss, test_accuracy, test
         'test_accuracy': test_accuracy,
         'test_confusion': test_confusion,
         'classes': classes,
-    }, filename)    
+        }, filename)    
 
 def main():
 
