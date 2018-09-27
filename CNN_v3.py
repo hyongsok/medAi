@@ -78,6 +78,37 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
+def get_optimizer( name ):
+    optimizer = None
+    if name == 'Adam':
+        optimizer = torch.optim.Adam
+    else:
+        print('Could not identify optimizer')
+    return optimizer
+
+def get_criterion( name ):
+    criterion = None
+    if name == 'CrossEntropy':
+        criterion = nn.CrossEntropyLoss
+    else:
+        print('Could not identify criterion')
+    return criterion
+
+def get_model( name ):
+    model = None
+    if name.startswith('resnet'):
+        if name.endswith('18'):
+            model = models.resnet18
+        elif name.endswith('34'):
+            model = models.resnet34
+        elif name.endswith('50'):
+            model = models.resnet50
+        else:
+            model = models.resnet18
+    else:
+        print('Could not identify model')
+    return model
+    
 
 def train( model, criterion, optimizer, epoch, train_loader, device ):
     '''Deep learning training function to optimize the network with all images in the train_loader.
@@ -329,7 +360,7 @@ def get_deep_learning_model( config, num_classes, device ):
     # Deep learning model resnet18 without prior training on ImageNet data.
     # be aware that if you change the model there might be additional parameter
     # necessary, e.g. for inception you need aux_logits as parameter
-    model_ft = models.resnet18(pretrained=False, num_classes=num_classes)
+    model_ft = get_model('resnet18')(pretrained=False, num_classes=num_classes)
 
     # Reducing the output layer to num_classes
     num_ftrs = model_ft.fc.in_features
@@ -337,8 +368,8 @@ def get_deep_learning_model( config, num_classes, device ):
     model = model_ft.to(device)
 
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    criterion = get_criterion('CrossEntropy')()
+    optimizer = get_optimizer('Adam')(model.parameters(), lr=learning_rate)
 
     return criterion, optimizer, model
 
