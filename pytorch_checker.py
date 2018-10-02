@@ -21,7 +21,7 @@ if __name__ == '__main__':
     if torch.cuda.is_available():
         num_gpus = torch.cuda.device_count()
         for ii in range(num_gpus):
-            prop = torch.cuda.get_device_capability(ii)
+            prop = torch.cuda.get_device_properties(ii)
             print('CUDA device {ii}: {prop.name}\nMemory: {prop.total_memory}\nMulti processor count: {prop.multi_processor_count}\nMajor version: {prop.major}, minor version {prop.minor}\n'.format(ii=ii, prop=prop))
     else:
         print('No CUDA devices')
