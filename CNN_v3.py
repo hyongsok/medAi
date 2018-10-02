@@ -80,9 +80,14 @@ class RetinaChecker(object):
         self.train_dataset = None
         self.test_dataset = None
         self.num_classes = None
+        self.classes = None
 
         self.train_loader = None
         self.test_loader = None
+
+        self.start_epoch = None
+
+        self.initialized = False
     
     def train( self, epoch ):
         '''Deep learning training function to optimize the network with all images in the train_loader.
@@ -183,6 +188,169 @@ class RetinaChecker(object):
         
         return losses, top1, confusion
 
+    def _get_optimizer( self, name ):
+        optimizer = None
+        if name == 'Adam':
+            optimizer = torch.optim.Adam
+        else:
+            print('Could not identify optimizer')
+        return optimizer
+
+    def _get_criterion( self, name ):
+        criterion = None
+        if name == 'CrossEntropy':
+            criterion = nn.CrossEntropyLoss
+        else:
+            print('Could not identify criterion')
+        return criterion
+
+    def _get_model( self, name ):
+        model = None
+        if name.startswith('resnet'):
+            if name.endswith('18'):
+                model = models.resnet18
+            elif name.endswith('34'):
+                model = models.resnet34
+            elif name.endswith('50'):
+                model = models.resnet50
+            else:
+                model = models.resnet18
+        else:
+            print('Could not identify model')
+        return model
+
+    def initialize_deep_learning_model( self ):
+        """Generates the model, criterion, and optimizer
+        
+        Arguments:
+            config {configparser.ConfigParser} -- configuration file
+            num_classes {int} -- number of target classes (= output dimensions) of the model
+            device {torch.device} -- target device (cpu/gpu/...)
+        
+        Returns:
+            torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
+            torch.nn._Loss -- the loss function, e.g. cross entropy or negative log likelihood
+            torch.nn.Module -- the deep neural network  
+        """
+
+        learning_rate = self.config['hyperparameter'].getfloat('learning rate', 0.01)
+        
+        # Deep learning model resnet18 without prior training on ImageNet data.
+        # be aware that if you change the model there might be additional parameter
+        # necessary, e.g. for inception you need aux_logits as parameter
+        self.model = self._get_model('resnet18')(pretrained=False, num_classes=self.num_classes)
+
+        # Reducing the output layer to num_classes
+        num_ftrs = self.model.fc.in_features
+        self.model.fc = nn.Linear(num_ftrs, self.num_classes)
+        self.model = self.model.to(self.device)
+
+        # Loss and optimizer
+        self.criterion = self._get_criterion('CrossEntropy')()
+        self.optimizer = self._get_optimizer('Adam')(self.model.parameters(), lr=learning_rate)
+
+    def _load_datasets( self ):
+        '''Loads the data sets from the path given in the config file
+        
+        Arguments:
+            config {configparser.ConfigParser} -- the configuration read from ini file
+        
+        Returns:
+            torch.utils.data.Dataset -- training data
+            torch.utils.data.Dataset -- Test data
+        '''
+
+        image_size = self.config['files'].getint('image size', 299)
+        # normalization factors for the DMR dataset were manually derived
+        normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
+                                        std=[0.2287, 0.1286, 0.0723])
+
+        rotation_angle = self.config['transform'].getint('rotation angle', 180)
+        rotation = transforms.RandomRotation(rotation_angle)
+        
+        brightness = self.config['transform'].getint('brightness', 0)
+        contrast = self.config['transform'].getint('contrast', 0)
+        saturation = self.config['transform'].getint('saturation', 0)
+        hue = self.config['transform'].getint('hue', 0)
+        color_jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
+        
+        train_transform = transforms.Compose([
+                color_jitter,
+                rotation,
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomResizedCrop(size=image_size, scale=(0.25,1.0), ratio=(1,1)),
+                transforms.ToTensor(),
+                normalize,
+            ])
+        test_transform = transforms.Compose([
+                transforms.Resize(size=int(image_size*1.1)),
+                transforms.CenterCrop(size=image_size),
+                transforms.ToTensor(),
+                normalize,
+            ])
+
+        self.train_dataset = torchvision.datasets.ImageFolder(root=self.config['files'].get('train path', './train'),
+                                                        transform=train_transform)
+        self.test_dataset = torchvision.datasets.ImageFolder(root=self.config['files'].get('test path', './test'),
+                                                        transform=test_transform)
+        
+        self.classes = self.train_dataset.class_to_idx
+        self.num_classes = len(self.classes)
+
+    def _create_dataloader( self ):
+        """Generates the dataloader (and their respective samplers) for
+        training and test data from the training and test data sets.
+        Sampler for training data is an unbiased sampler for all classes
+        in the training set, i.e. even if the class distribution in the
+        data set is biased, all classes are equally contained in the sampling.
+        No specific sampler for test data.
+        
+        Arguments:
+            train_dataset {torch.util.data.Dataset} -- training data
+            test_dataset {torch.util.data.Dateset} -- test data
+            config {configparser.ConfigParser} -- configuration file containing 
+            batch size and number of samples
+        
+        Returns:
+            torch.util.data.DataLoader -- loader for training data
+            torch.util.data.DataLoader -- loader for test data
+        """
+
+        batch_size = self.config['hyperparameter'].getint('batch size', 10)
+        num_samples = self.config['files'].getint('samples', 1000)
+        
+        train_sampler = get_sampler( self.train_dataset, num_samples )
+        test_sampler = None
+
+        self.train_loader = torch.utils.data.DataLoader(dataset=self.train_dataset,
+                                                batch_size=batch_size,
+                                                shuffle=False,
+                                                sampler=train_sampler)
+
+        self.test_loader = torch.utils.data.DataLoader(dataset=self.test_dataset,
+                                                batch_size=batch_size,
+                                                shuffle=False,
+                                                sampler=test_sampler)
+
+
+    def initialize( self, config ):
+        self.config = config
+
+        # Device configuration
+        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        print(self.device)
+
+        # Loading data sets based on configuration
+        self._load_datasets()
+        self.start_epoch = 0
+
+        # Initializing sampler and data (=patch) loader
+        self._create_dataloader()
+
+        # Initialize the model
+        self.initialize_deep_learning_model()
+
+
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     with torch.no_grad():
@@ -198,87 +366,6 @@ def accuracy(output, target, topk=(1,)):
             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
-
-def get_optimizer( name ):
-    optimizer = None
-    if name == 'Adam':
-        optimizer = torch.optim.Adam
-    else:
-        print('Could not identify optimizer')
-    return optimizer
-
-def get_criterion( name ):
-    criterion = None
-    if name == 'CrossEntropy':
-        criterion = nn.CrossEntropyLoss
-    else:
-        print('Could not identify criterion')
-    return criterion
-
-def get_model( name ):
-    model = None
-    if name.startswith('resnet'):
-        if name.endswith('18'):
-            model = models.resnet18
-        elif name.endswith('34'):
-            model = models.resnet34
-        elif name.endswith('50'):
-            model = models.resnet50
-        else:
-            model = models.resnet18
-    else:
-        print('Could not identify model')
-    return model
-    
-
-
-
-
-def load_datasets( config ):
-    '''Loads the data sets from the path given in the config file
-    
-    Arguments:
-        config {configparser.ConfigParser} -- the configuration read from ini file
-    
-    Returns:
-        torch.utils.data.Dataset -- training data
-        torch.utils.data.Dataset -- Test data
-    '''
-
-    image_size = config['files'].getint('image size', 299)
-    # normalization factors for the DMR dataset were manually derived
-    normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
-                                     std=[0.2287, 0.1286, 0.0723])
-
-    rotation_angle = config['transform'].getint('rotation angle', 180)
-    rotation = transforms.RandomRotation(rotation_angle)
-    
-    brightness = config['transform'].getint('brightness', 0)
-    contrast = config['transform'].getint('contrast', 0)
-    saturation = config['transform'].getint('saturation', 0)
-    hue = config['transform'].getint('hue', 0)
-    color_jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
-    
-    train_transform = transforms.Compose([
-            color_jitter,
-            rotation,
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomResizedCrop(size=image_size, scale=(0.25,1.0), ratio=(1,1)),
-            transforms.ToTensor(),
-            normalize,
-        ])
-    test_transform = transforms.Compose([
-            transforms.Resize(size=int(image_size*1.1)),
-            transforms.CenterCrop(size=image_size),
-            transforms.ToTensor(),
-            normalize,
-        ])
-
-    train_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('train path', './train'),
-                                                    transform=train_transform)
-    test_dataset = torchvision.datasets.ImageFolder(root=config['files'].get('test path', './test'),
-                                                    transform=test_transform)
-    return train_dataset, test_dataset
 
 def get_sampler( dataset, num_samples ):
     '''The distribution of samples in training and test data is not equal, i.e.
@@ -312,42 +399,7 @@ all samples) and use this as the probability for the weighted random sampler.
     sampler = torch.utils.data.WeightedRandomSampler( sampling_weights, num_samples, True )
     return sampler
 
-def get_dataloader( train_dataset, test_dataset, config ):
-    """Generates the dataloader (and their respective samplers) for
-    training and test data from the training and test data sets.
-    Sampler for training data is an unbiased sampler for all classes
-    in the training set, i.e. even if the class distribution in the
-    data set is biased, all classes are equally contained in the sampling.
-    No specific sampler for test data.
-    
-    Arguments:
-        train_dataset {torch.util.data.Dataset} -- training data
-        test_dataset {torch.util.data.Dateset} -- test data
-        config {configparser.ConfigParser} -- configuration file containing 
-        batch size and number of samples
-    
-    Returns:
-        torch.util.data.DataLoader -- loader for training data
-        torch.util.data.DataLoader -- loader for test data
-    """
 
-    batch_size = config['hyperparameter'].getint('batch size', 10)
-    num_samples = config['files'].getint('samples', 1000)
-    
-    train_sampler = get_sampler( train_dataset, num_samples )
-    test_sampler = None
-
-    train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
-                                            batch_size=batch_size,
-                                            shuffle=False,
-                                            sampler=train_sampler)
-
-    test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
-                                            batch_size=batch_size,
-                                            shuffle=False,
-                                            sampler=test_sampler)
-
-    return train_loader, test_loader
 
 def print_dataset_stats( dataset, loader ):
     """Debug / support function. Iterates through all samples in the dataloader
@@ -370,37 +422,7 @@ def print_dataset_stats( dataset, loader ):
     for key, val in classes.items():
         print('{}: {} - {} samples ({:.1f}%)'.format(val, key, labels[int(val)], labels[int(val)]/labels.sum()*100))
         
-def get_deep_learning_model( config, num_classes, device ):
-    """Generates the model, criterion, and optimizer
-    
-    Arguments:
-        config {configparser.ConfigParser} -- configuration file
-        num_classes {int} -- number of target classes (= output dimensions) of the model
-        device {torch.device} -- target device (cpu/gpu/...)
-    
-    Returns:
-        torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
-        torch.nn._Loss -- the loss function, e.g. cross entropy or negative log likelihood
-        torch.nn.Module -- the deep neural network  
-    """
 
-    learning_rate = config['hyperparameter'].getfloat('learning rate', 0.01)
-    
-    # Deep learning model resnet18 without prior training on ImageNet data.
-    # be aware that if you change the model there might be additional parameter
-    # necessary, e.g. for inception you need aux_logits as parameter
-    model_ft = get_model('resnet18')(pretrained=False, num_classes=num_classes)
-
-    # Reducing the output layer to num_classes
-    num_ftrs = model_ft.fc.in_features
-    model_ft.fc = nn.Linear(num_ftrs, num_classes)
-    model = model_ft.to(device)
-
-    # Loss and optimizer
-    criterion = get_criterion('CrossEntropy')()
-    optimizer = get_optimizer('Adam')(model.parameters(), lr=learning_rate)
-
-    return criterion, optimizer, model
 
 def load_state( model, optimizer, config ):
     """Load the state stored in the config into the given model and optimizer.
@@ -539,12 +561,6 @@ def save_performance( train_loss, train_accuracy, test_loss, test_accuracy, test
 
 def main():
 
-    rc = RetinaChecker()
-
-    # Device configuration
-    rc.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print(rc.device)
-
     # Reading configuration file
     config = configparser.ConfigParser()
     if len(sys.argv) > 1:
@@ -552,15 +568,9 @@ def main():
     else:
         config.read('default.cfg')
 
-    # Loading data sets based on configuration
-    rc.train_dataset, rc.test_dataset = load_datasets( config )
-    classes = rc.train_dataset.class_to_idx
-    rc.num_classes = len(classes)
-    start_epoch = 0
-    
-    # Initializing sampler and data (=patch) loader
-    rc.train_loader, rc.test_loader = get_dataloader( rc.train_dataset, rc.test_dataset, config )
-   
+    rc = RetinaChecker()
+    rc.initialize( config )
+
     # Patch statistics requires the data loader to load all patches once
     # to analyze the data. This takes a lot of time. Use only when you
     # change something on the sampler to see the results. Should be False
@@ -569,16 +579,11 @@ def main():
         print_dataset_stats( rc.train_dataset, rc.train_loader )
         print_dataset_stats( rc.test_dataset, rc.test_loader )
     print('Data loaded. Setting up model.')
-
-    # Initialize the model
-    rc.criterion, rc.optimizer, model_ft = get_deep_learning_model( config, rc.num_classes, rc.device  )
     
     # loading previous models
     if config['input'].getboolean('resume', False):
-        model_ft, rc.optimizer, start_epoch = load_state( model_ft, rc.optimizer, config )
+        rc.model, rc.optimizer, start_epoch = load_state( rc.model, rc.optimizer, config )
 
-    # transfer the model to the computation device, e.g. GPU
-    rc.model = model_ft
     print('Model set up. Ready to train.')
 
     # Performance meters initalized (either empty or from file)
@@ -602,7 +607,7 @@ def main():
         test_confusion[epoch,:,:] = confusion
 
         print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg*100))
-        print('Classes: {}'.format(classes))
+        print('Classes: {}'.format(rc.classes))
         print('Confusion matrix:\n', (confusion))
 
         confusion_2class = reduce_to_2_classes( confusion, [(1,3), (0,2,4)])
@@ -614,18 +619,18 @@ def main():
         if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
             save_state( rc.model, rc.optimizer, epoch+1, train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
-                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], classes, 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], rc.classes, 
                         config['output'].get('filename', 'model')+'_after_epoch_{}'.format(epoch+1)+config['output'].get('extension', '.ckpt') )
         
         if top1.avg > best_accuracy:
             save_state( rc.model, rc.optimizer, epoch+1, train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
-                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], classes, 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], rc.classes, 
                         config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
             best_accuracy = top1.avg
 
         save_performance( train_loss[:(epoch+1)], train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
-                test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], classes, 
+                test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], rc.classes, 
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1) )
 
         # Output on progress
@@ -637,7 +642,7 @@ def main():
 
 
     # Save the model checkpoint
-    save_state( rc.model, rc.optimizer, num_epochs, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, classes,
+    save_state( rc.model, rc.optimizer, num_epochs, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, rc.classes,
                 config['output'].get('filename', 'model')+config['output'].get('extension', '.ckpt') )
 
     # cleanup
