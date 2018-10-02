@@ -3,7 +3,6 @@
 Author: Philipp Lies (phil@lies.io)
 partially derived from imagenet example
 """
-
 class AverageMeter(object):
     """Computes and stores the average and current value
     
@@ -56,3 +55,4 @@ class AccuracyMeter(object):
         self.sum += val
         self.count += n
         self.avg = self.sum / self.count
+
