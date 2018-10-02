@@ -62,6 +62,127 @@ class AccuracyMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
+class RetinaChecker(object):
+    """[summary]
+    
+    Arguments:
+        object {[type]} -- [description]
+    """
+
+    def __init__(self):
+        self.device = None
+        self.config = None
+
+        self.model = None
+        self.optimizer = None
+        self.criterion = None
+
+        self.train_dataset = None
+        self.test_dataset = None
+        self.num_classes = None
+
+        self.train_loader = None
+        self.test_loader = None
+    
+    def train( self, epoch ):
+        '''Deep learning training function to optimize the network with all images in the train_loader.
+        
+        Arguments:
+            model {torch.nn.Module} -- the deep neural network
+            criterion {torch.nn._Loss} -- the loss function, e.g. cross entropy or negative log likelihood
+            optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
+            train_loader {torch.utils.data.DataLoader} -- contains the data for training
+            device {torch.device} -- target computation device        
+            epoch {int} -- the number of the current epoch (for console output only)
+        
+        Returns:
+            AverageMeter -- training loss
+            AccuracyMeter -- training accuracy
+        '''
+
+        start_epoch = time.time()
+        losses = AverageMeter()
+        top1 = AccuracyMeter()
+        self.model.train()
+
+        for i, (images, labels) in enumerate(self.train_loader):
+            images = images.to(self.device)
+            labels = labels.to(self.device)
+
+            # Forward pass
+            outputs = self.model(images)
+            loss = self.criterion(outputs, labels)
+
+            # evaluate
+            losses.update(loss.item(), images.size(0))
+            _, predicted = torch.max(outputs.data, 1)
+            top1.update((predicted == labels).sum().item(), labels.size(0))
+
+            # Backward and optimize
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+
+            current_time = time.time()
+            print('Epoch [{}], Step [{}/{}], Loss: {:.4f},  Samples: {}, Correct: {} ({:.1f}%),  time in epoch {}, epoch remaining {}'
+                .format(epoch + 1, i + 1, len(self.train_loader), loss.item(), labels.size(0), (predicted == labels).sum().item(), 
+                    (predicted == labels).sum().item()/labels.size(0)*100,
+                    pretty_print_time(current_time-start_epoch), 
+                    pretty_time_left(start_epoch, i+1, len(self.train_loader))))
+        print('Epoch learning completed. Training accuracy {:.1f}%'.format(top1.avg*100))
+
+        return losses, top1   
+
+
+
+    def validate( self, test_loader = None ):
+        '''Evaluates the model given the criterion and the data in test_loader
+        
+        Arguments:
+            model {torch.nn.Module} -- the deep neural network
+            criterion {torch.nn._Loss} -- the loss function, e.g. cross entropy or negative log likelihood
+            num_classes {int} -- the number of test classes
+            train_loader {torch.utils.data.DataLoader} -- contains the data for training
+            device {torch.device} -- target computation device        
+        
+        Returns:
+            AverageMeter -- training loss
+            AccuracyMeter -- training accuracy
+            numpy.Array -- [num_classes, num_classes] confusion matrix, columns are true classes, rows predictions
+        '''
+
+        if test_loader is None:
+            test_loader = self.test_loader
+
+        self.model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
+        with torch.no_grad():
+            correct = 0
+            total = 0
+            losses = AverageMeter()
+            top1 = AccuracyMeter()
+
+            confusion = torch.zeros((self.num_classes, self.num_classes), dtype=torch.float)
+
+            for images, labels in test_loader:
+                print(np.unique(labels, return_counts=True))
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+
+                outputs = self.model(images)
+                loss = self.criterion(outputs, labels)
+
+                losses.update(loss.item(), images.size(0))
+
+                _, predicted = torch.max(outputs.data, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+                top1.update((predicted == labels).sum().item(), labels.size(0))
+                print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), (predicted == labels).sum().item(), top1.avg*100, loss.item()))
+                for pred, lab in zip(predicted, labels):
+                    confusion[pred, lab] += 1
+        
+        return losses, top1, confusion
+
 def accuracy(output, target, topk=(1,)):
     """Computes the precision@k for the specified values of k"""
     with torch.no_grad():
@@ -110,99 +231,7 @@ def get_model( name ):
     return model
     
 
-def train( model, criterion, optimizer, epoch, train_loader, device ):
-    '''Deep learning training function to optimize the network with all images in the train_loader.
-    
-    Arguments:
-        model {torch.nn.Module} -- the deep neural network
-        criterion {torch.nn._Loss} -- the loss function, e.g. cross entropy or negative log likelihood
-        optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
-        train_loader {torch.utils.data.DataLoader} -- contains the data for training
-        device {torch.device} -- target computation device        
-        epoch {int} -- the number of the current epoch (for console output only)
-    
-    Returns:
-        AverageMeter -- training loss
-        AccuracyMeter -- training accuracy
-    '''
 
-    start_epoch = time.time()
-    losses = AverageMeter()
-    top1 = AccuracyMeter()
-    model.train()
-
-    for i, (images, labels) in enumerate(train_loader):
-        images = images.to(device)
-        labels = labels.to(device)
-
-        # Forward pass
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-
-        # evaluate
-        losses.update(loss.item(), images.size(0))
-        _, predicted = torch.max(outputs.data, 1)
-        top1.update((predicted == labels).sum().item(), labels.size(0))
-
-        # Backward and optimize
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        current_time = time.time()
-        print('Epoch [{}], Step [{}/{}], Loss: {:.4f},  Samples: {}, Correct: {} ({:.1f}%),  time in epoch {}, epoch remaining {}'
-            .format(epoch + 1, i + 1, len(train_loader), loss.item(), labels.size(0), (predicted == labels).sum().item(), 
-                (predicted == labels).sum().item()/labels.size(0)*100,
-                pretty_print_time(current_time-start_epoch), 
-                pretty_time_left(start_epoch, i+1, len(train_loader))))
-    print('Epoch learning completed. Training accuracy {:.1f}%'.format(top1.avg*100))
-
-    return losses, top1   
-
-def validate( model, criterion, num_classes, test_loader, device ):
-    '''Evaluates the model given the criterion and the data in test_loader
-    
-    Arguments:
-        model {torch.nn.Module} -- the deep neural network
-        criterion {torch.nn._Loss} -- the loss function, e.g. cross entropy or negative log likelihood
-        num_classes {int} -- the number of test classes
-        train_loader {torch.utils.data.DataLoader} -- contains the data for training
-        device {torch.device} -- target computation device        
-    
-    Returns:
-        AverageMeter -- training loss
-        AccuracyMeter -- training accuracy
-        numpy.Array -- [num_classes, num_classes] confusion matrix, columns are true classes, rows predictions
-    '''
-
-    model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
-    with torch.no_grad():
-        correct = 0
-        total = 0
-        losses = AverageMeter()
-        top1 = AccuracyMeter()
-
-        confusion = torch.zeros((num_classes,num_classes), dtype=torch.float)
-
-        for images, labels in test_loader:
-            print(np.unique(labels, return_counts=True))
-            images = images.to(device)
-            labels = labels.to(device)
-
-            outputs = model(images)
-            loss = criterion(outputs, labels)
-
-            losses.update(loss.item(), images.size(0))
-
-            _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-            top1.update((predicted == labels).sum().item(), labels.size(0))
-            print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), (predicted == labels).sum().item(), top1.avg*100, loss.item()))
-            for pred, lab in zip(predicted, labels):
-                confusion[pred, lab] += 1
-    
-    return losses, top1, confusion
 
 
 def load_datasets( config ):
@@ -510,9 +539,11 @@ def save_performance( train_loss, train_accuracy, test_loss, test_accuracy, test
 
 def main():
 
+    rc = RetinaChecker()
+
     # Device configuration
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print(device)
+    rc.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print(rc.device)
 
     # Reading configuration file
     config = configparser.ConfigParser()
@@ -522,37 +553,37 @@ def main():
         config.read('default.cfg')
 
     # Loading data sets based on configuration
-    train_dataset, test_dataset = load_datasets( config )
-    classes = train_dataset.class_to_idx
-    num_classes = len(classes)
+    rc.train_dataset, rc.test_dataset = load_datasets( config )
+    classes = rc.train_dataset.class_to_idx
+    rc.num_classes = len(classes)
     start_epoch = 0
     
     # Initializing sampler and data (=patch) loader
-    train_loader, test_loader = get_dataloader( train_dataset, test_dataset, config )
+    rc.train_loader, rc.test_loader = get_dataloader( rc.train_dataset, rc.test_dataset, config )
    
     # Patch statistics requires the data loader to load all patches once
     # to analyze the data. This takes a lot of time. Use only when you
     # change something on the sampler to see the results. Should be False
     # for regular learning passes.
     if config['files'].getboolean('show patch stats', False):
-        print_dataset_stats( train_dataset, train_loader )
-        print_dataset_stats( test_dataset, test_loader )
+        print_dataset_stats( rc.train_dataset, rc.train_loader )
+        print_dataset_stats( rc.test_dataset, rc.test_loader )
     print('Data loaded. Setting up model.')
 
     # Initialize the model
-    criterion, optimizer, model_ft = get_deep_learning_model( config, num_classes, device  )
+    rc.criterion, rc.optimizer, model_ft = get_deep_learning_model( config, rc.num_classes, rc.device  )
     
     # loading previous models
     if config['input'].getboolean('resume', False):
-        model_ft, optimizer, start_epoch = load_state( model_ft, optimizer, config )
+        model_ft, rc.optimizer, start_epoch = load_state( model_ft, rc.optimizer, config )
 
     # transfer the model to the computation device, e.g. GPU
-    model = model_ft
+    rc.model = model_ft
     print('Model set up. Ready to train.')
 
     # Performance meters initalized (either empty or from file)
     num_epochs = start_epoch + config['hyperparameter'].getint('epochs', 10)
-    train_loss, train_accuracy, test_loss, test_accuracy, test_confusion = initialize_meters( config, start_epoch, num_epochs, num_classes )
+    train_loss, train_accuracy, test_loss, test_accuracy, test_confusion = initialize_meters( config, start_epoch, num_epochs, rc.num_classes )
 
     # Starting training & evaluation
     start_time = time.time()
@@ -561,11 +592,11 @@ def main():
         start_time_epoch = time.time()
 
         # Train the model and record training loss & accuracy
-        losses, top1 = train( model, criterion, optimizer, epoch, train_loader, device )
+        losses, top1 = rc.train( epoch )
         train_loss[epoch] = losses.avg
         train_accuracy[epoch] = top1.avg
         
-        losses, top1, confusion = validate( model, criterion, num_classes, test_loader, device )
+        losses, top1, confusion = rc.validate()
         test_loss[epoch] = losses.avg
         test_accuracy[epoch] = top1.avg
         test_confusion[epoch,:,:] = confusion
@@ -581,13 +612,13 @@ def main():
         print('Specificity: {:.1f}%'.format(confusion_2class[0,0]/confusion_2class[:,0].sum()*100))
 
         if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
-            save_state( model, optimizer, epoch+1, train_loss[:(epoch+1)], 
+            save_state( rc.model, rc.optimizer, epoch+1, train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], classes, 
                         config['output'].get('filename', 'model')+'_after_epoch_{}'.format(epoch+1)+config['output'].get('extension', '.ckpt') )
         
         if top1.avg > best_accuracy:
-            save_state( model, optimizer, epoch+1, train_loss[:(epoch+1)], 
+            save_state( rc.model, rc.optimizer, epoch+1, train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], classes, 
                         config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
@@ -606,7 +637,7 @@ def main():
 
 
     # Save the model checkpoint
-    save_state( model, optimizer, num_epochs, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, classes,
+    save_state( rc.model, rc.optimizer, num_epochs, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, classes,
                 config['output'].get('filename', 'model')+config['output'].get('extension', '.ckpt') )
 
     # cleanup
