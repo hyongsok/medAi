@@ -9,64 +9,10 @@ import time
 from time_left import pretty_time_left, pretty_print_time
 import numpy as np
 
-class AverageMeter(object):
-    """Computes and stores the average and current value
-    
-    Usage: 
-    am = AverageMeter()
-    am.update(123)
-    am.update(456)
-    am.update(789)
-    
-    last_value = am.val
-    average_value = am.avg
-    
-    am.reset() #set all to 0"""
-    def __init__(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-class AccuracyMeter(object):
-    """Computes and stores the correctly classified samples
-    
-    Usage: pass the number of correct (val) and the total number (n)
-    of samples to update(val, n). Then .avg contains the 
-    percentage correct.
-    """
-    def __init__(self):
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def reset(self):
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n):
-        self.sum += val
-        self.count += n
-        self.avg = self.sum / self.count
+from helper_functions import AverageMeter, AccuracyMeter
 
 class RetinaChecker(object):
-    """[summary]
-    
-    Arguments:
-        object {[type]} -- [description]
+    """Deep learning model
     """
 
     def __init__(self):
@@ -113,14 +59,6 @@ class RetinaChecker(object):
     def train( self ):
         '''Deep learning training function to optimize the network with all images in the train_loader.
         
-        Arguments:
-            model {torch.nn.Module} -- the deep neural network
-            criterion {torch.nn._Loss} -- the loss function, e.g. cross entropy or negative log likelihood
-            optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
-            train_loader {torch.utils.data.DataLoader} -- contains the data for training
-            device {torch.device} -- target computation device        
-            epoch {int} -- the number of the current epoch (for console output only)
-        
         Returns:
             AverageMeter -- training loss
             AccuracyMeter -- training accuracy
@@ -166,11 +104,7 @@ class RetinaChecker(object):
         '''Evaluates the model given the criterion and the data in test_loader
         
         Arguments:
-            model {torch.nn.Module} -- the deep neural network
-            criterion {torch.nn._Loss} -- the loss function, e.g. cross entropy or negative log likelihood
-            num_classes {int} -- the number of test classes
-            train_loader {torch.utils.data.DataLoader} -- contains the data for training
-            device {torch.device} -- target computation device        
+            test_loader {torch.utils.data.DataLoader} -- contains the data for training, if None takes internal test_loader     
         
         Returns:
             AverageMeter -- training loss
@@ -253,13 +187,6 @@ class RetinaChecker(object):
 
     def _load_datasets( self ):
         '''Loads the data sets from the path given in the config file
-        
-        Arguments:
-            config {configparser.ConfigParser} -- the configuration read from ini file
-        
-        Returns:
-            torch.utils.data.Dataset -- training data
-            torch.utils.data.Dataset -- Test data
         '''
 
         image_size = self.config['files'].getint('image size', 299)
@@ -306,16 +233,6 @@ class RetinaChecker(object):
         in the training set, i.e. even if the class distribution in the
         data set is biased, all classes are equally contained in the sampling.
         No specific sampler for test data.
-        
-        Arguments:
-            train_dataset {torch.util.data.Dataset} -- training data
-            test_dataset {torch.util.data.Dateset} -- test data
-            config {configparser.ConfigParser} -- configuration file containing 
-            batch size and number of samples
-        
-        Returns:
-            torch.util.data.DataLoader -- loader for training data
-            torch.util.data.DataLoader -- loader for test data
         """
 
         batch_size = self.config['hyperparameter'].getint('batch size', 10)
@@ -336,6 +253,16 @@ class RetinaChecker(object):
 
 
     def initialize( self, config ):
+        """Initializes the RetinaChecker from given configuration file. Sets the
+        device (first gpu if cuda is available, cpu otherwise), loads the data sets,
+        creates the data loaders and initializes model, criterion, and optimizer.
+        After this the RetinaChecker is ready for loading a previous state, training,
+        and evaluation.
+        
+        Arguments:
+            config {configparser.ConfigParser} -- configuration file 
+        """
+
         self.config = config
 
         # Device configuration
@@ -360,15 +287,11 @@ class RetinaChecker(object):
         """Save the current state of the model including history of training and test performance
         
         Arguments:
-            model {torch.nn.Module} -- the deep neural network
-            optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
-            num_epochs {int} -- the number of executed epochs  
             train_loss {torch.Array} -- tensor of training losses
             train_accuracy {torch.Array} -- tensor of training accuracy
             test_loss {torch.Array} -- tensor of test losses
             test_accuracy {torch.Array} -- tensor of test accuracy
             test_confusion {torch.Array} -- tensor of confusion matrices
-            classes {dict} -- class dictionary
             filename {string} -- target filename
         """
 
@@ -388,16 +311,6 @@ class RetinaChecker(object):
         """Load the state stored in the config into the given model and optimizer.
         Model and optimizer must match exactly to the stored model, will crash
         otherwise.
-        
-        Arguments:
-            model {torch.nn.Module} -- the deep neural network
-            optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
-            config {configparser.ConfigParser} -- configuration file
-        
-        Returns:
-            torch.nn.Module -- the deep neural network      
-            torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
-            int -- number of epochs trained
         """
         try:
             checkpoint = torch.load(self.config['input'].get('checkpoint'))
