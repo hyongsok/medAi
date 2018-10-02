@@ -74,8 +74,14 @@ class RetinaChecker(object):
         self.config = None
 
         self.model = None
+        self.model_name = 'resnet18'
         self.optimizer = None
+        self.optimizer_name = 'Adam'
         self.criterion = None
+        self.criterion_name = 'CrossEntropy'
+
+        self.model_pretrained = False
+        self.model_kwargs = {}
 
         self.train_dataset = None
         self.test_dataset = None
@@ -85,10 +91,24 @@ class RetinaChecker(object):
         self.train_loader = None
         self.test_loader = None
 
-        self.start_epoch = None
-        self.epoch = None
+        self.start_epoch = 0
+        self.epoch = 0
+
+        self.learning_rate = None
 
         self.initialized = False
+    
+    def __str__( self ):
+        desc = 'RetinaChecker\n'
+        if self.initialized:
+            desc += 'Network: ' + self.model_name + '\n'
+            desc += 'Optimizer: ' + self.optimizer_name + '\n'
+            desc += 'Criterion: ' + self.criterion_name + '\n'
+            desc += 'Epochs: ' + self.epoch + '\n'
+
+        else:
+            desc += 'not initialized'
+        return desc
     
     def train( self ):
         '''Deep learning training function to optimize the network with all images in the train_loader.
@@ -190,66 +210,46 @@ class RetinaChecker(object):
         
         return losses, top1, confusion
 
-    def _get_optimizer( self, name ):
-        optimizer = None
-        if name == 'Adam':
-            optimizer = torch.optim.Adam
+    def _initialize_optimizer( self ):
+        optimizer_loader = None
+        if self.optimizer_name == 'Adam':
+            optimizer_loader = torch.optim.Adam
         else:
             print('Could not identify optimizer')
-        return optimizer
+            return
 
-    def _get_criterion( self, name ):
-        criterion = None
-        if name == 'CrossEntropy':
-            criterion = nn.CrossEntropyLoss
+        self.learning_rate = self.config['hyperparameter'].getfloat('learning rate', 0.01)
+        self.optimizer = optimizer_loader(self.model.parameters(), lr=self.learning_rate)
+
+    def _initialize_criterion( self ):
+        criterion_loader = None
+        if self.criterion_name == 'CrossEntropy':
+            criterion_loader = nn.CrossEntropyLoss
         else:
             print('Could not identify criterion')
-        return criterion
+            return
 
-    def _get_model( self, name ):
-        model = None
-        if name.startswith('resnet'):
-            if name.endswith('18'):
-                model = models.resnet18
-            elif name.endswith('34'):
-                model = models.resnet34
-            elif name.endswith('50'):
-                model = models.resnet50
+        self.criterion = criterion_loader()
+
+    def _initialize_model( self ):
+        model_loader = None
+        if self.model_name.startswith('resnet'):
+            if self.model_name.endswith('18'):
+                model_loader = models.resnet18
+            elif self.model_name.endswith('34'):
+                model_loader = models.resnet34
+            elif self.model_name.endswith('50'):
+                model_loader = models.resnet50
             else:
-                model = models.resnet18
+                model_loader = models.resnet18
         else:
             print('Could not identify model')
-        return model
-
-    def initialize_deep_learning_model( self ):
-        """Generates the model, criterion, and optimizer
+            return
         
-        Arguments:
-            config {configparser.ConfigParser} -- configuration file
-            num_classes {int} -- number of target classes (= output dimensions) of the model
-            device {torch.device} -- target device (cpu/gpu/...)
-        
-        Returns:
-            torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
-            torch.nn._Loss -- the loss function, e.g. cross entropy or negative log likelihood
-            torch.nn.Module -- the deep neural network  
-        """
-
-        learning_rate = self.config['hyperparameter'].getfloat('learning rate', 0.01)
-        
-        # Deep learning model resnet18 without prior training on ImageNet data.
-        # be aware that if you change the model there might be additional parameter
-        # necessary, e.g. for inception you need aux_logits as parameter
-        self.model = self._get_model('resnet18')(pretrained=False, num_classes=self.num_classes)
-
-        # Reducing the output layer to num_classes
+        self.model = model_loader( pretrained=self.model_pretrained, num_classes=self.num_classes, **self.model_kwargs)
         num_ftrs = self.model.fc.in_features
         self.model.fc = nn.Linear(num_ftrs, self.num_classes)
         self.model = self.model.to(self.device)
-
-        # Loss and optimizer
-        self.criterion = self._get_criterion('CrossEntropy')()
-        self.optimizer = self._get_optimizer('Adam')(self.model.parameters(), lr=learning_rate)
 
     def _load_datasets( self ):
         '''Loads the data sets from the path given in the config file
@@ -344,14 +344,17 @@ class RetinaChecker(object):
 
         # Loading data sets based on configuration
         self._load_datasets()
-        self.start_epoch = 0
-        self.epoch = 0
 
         # Initializing sampler and data (=patch) loader
         self._create_dataloader()
 
         # Initialize the model
-        self.initialize_deep_learning_model()
+        self._initialize_model()
+        self._initialize_criterion()
+        self._initialize_optimizer()
+
+        self.initialized = True
+        
 
     def save_state( self, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, filename ):
         """Save the current state of the model including history of training and test performance
@@ -370,7 +373,7 @@ class RetinaChecker(object):
         """
 
         torch.save({
-            'epoch': self.epoch+1,
+            'epoch': self.epoch,
             'state_dict': self.model.state_dict(),
             'optimizer' : self.optimizer.state_dict(),
             'train_loss': train_loss,
@@ -573,6 +576,12 @@ def main():
     rc = RetinaChecker()
     rc.initialize( config )
 
+    # loading previous models
+    if config['input'].getboolean('resume', False):
+        rc.load_state()
+
+    print('Model set up. Ready to train.')
+
     # Patch statistics requires the data loader to load all patches once
     # to analyze the data. This takes a lot of time. Use only when you
     # change something on the sampler to see the results. Should be False
@@ -582,11 +591,6 @@ def main():
         print_dataset_stats( rc.test_dataset, rc.test_loader )
     print('Data loaded. Setting up model.')
     
-    # loading previous models
-    if config['input'].getboolean('resume', False):
-        rc.load_state()
-
-    print('Model set up. Ready to train.')
 
     # Performance meters initalized (either empty or from file)
     num_epochs = rc.start_epoch + config['hyperparameter'].getint('epochs', 10)
