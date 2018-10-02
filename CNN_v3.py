@@ -86,10 +86,11 @@ class RetinaChecker(object):
         self.test_loader = None
 
         self.start_epoch = None
+        self.epoch = None
 
         self.initialized = False
     
-    def train( self, epoch ):
+    def train( self ):
         '''Deep learning training function to optimize the network with all images in the train_loader.
         
         Arguments:
@@ -105,7 +106,7 @@ class RetinaChecker(object):
             AccuracyMeter -- training accuracy
         '''
 
-        start_epoch = time.time()
+        start_time_epoch = time.time()
         losses = AverageMeter()
         top1 = AccuracyMeter()
         self.model.train()
@@ -130,12 +131,13 @@ class RetinaChecker(object):
 
             current_time = time.time()
             print('Epoch [{}], Step [{}/{}], Loss: {:.4f},  Samples: {}, Correct: {} ({:.1f}%),  time in epoch {}, epoch remaining {}'
-                .format(epoch + 1, i + 1, len(self.train_loader), loss.item(), labels.size(0), (predicted == labels).sum().item(), 
+                .format(self.epoch + 1, i + 1, len(self.train_loader), loss.item(), labels.size(0), (predicted == labels).sum().item(), 
                     (predicted == labels).sum().item()/labels.size(0)*100,
-                    pretty_print_time(current_time-start_epoch), 
-                    pretty_time_left(start_epoch, i+1, len(self.train_loader))))
+                    pretty_print_time(current_time-start_time_epoch), 
+                    pretty_time_left(start_time_epoch, i+1, len(self.train_loader))))
         print('Epoch learning completed. Training accuracy {:.1f}%'.format(top1.avg*100))
 
+        self.epoch += 1
         return losses, top1   
 
 
@@ -343,12 +345,67 @@ class RetinaChecker(object):
         # Loading data sets based on configuration
         self._load_datasets()
         self.start_epoch = 0
+        self.epoch = 0
 
         # Initializing sampler and data (=patch) loader
         self._create_dataloader()
 
         # Initialize the model
         self.initialize_deep_learning_model()
+
+    def save_state( self, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, filename ):
+        """Save the current state of the model including history of training and test performance
+        
+        Arguments:
+            model {torch.nn.Module} -- the deep neural network
+            optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
+            num_epochs {int} -- the number of executed epochs  
+            train_loss {torch.Array} -- tensor of training losses
+            train_accuracy {torch.Array} -- tensor of training accuracy
+            test_loss {torch.Array} -- tensor of test losses
+            test_accuracy {torch.Array} -- tensor of test accuracy
+            test_confusion {torch.Array} -- tensor of confusion matrices
+            classes {dict} -- class dictionary
+            filename {string} -- target filename
+        """
+
+        torch.save({
+            'epoch': self.epoch+1,
+            'state_dict': self.model.state_dict(),
+            'optimizer' : self.optimizer.state_dict(),
+            'train_loss': train_loss,
+            'train_accuracy': train_accuracy,
+            'test_loss': test_loss,
+            'test_accuracy': test_accuracy,
+            'test_confusion': test_confusion,
+            'classes': self.classes,
+        }, filename)
+
+    def load_state( self ):
+        """Load the state stored in the config into the given model and optimizer.
+        Model and optimizer must match exactly to the stored model, will crash
+        otherwise.
+        
+        Arguments:
+            model {torch.nn.Module} -- the deep neural network
+            optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
+            config {configparser.ConfigParser} -- configuration file
+        
+        Returns:
+            torch.nn.Module -- the deep neural network      
+            torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
+            int -- number of epochs trained
+        """
+        try:
+            checkpoint = torch.load(self.config['input'].get('checkpoint'))
+            self.start_epoch = checkpoint['epoch']
+            self.epoch = self.start_epoch
+            self.model.load_state_dict(checkpoint['state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer'])
+            print("=> loaded checkpoint '{}' (epoch {})"
+                    .format(self.config['input'].get('checkpoint'), checkpoint['epoch']))
+        except OSError as e:
+            print("Exception occurred. Did not load model, starting from scratch.\n", e)
 
 
 def accuracy(output, target, topk=(1,)):
@@ -423,35 +480,6 @@ def print_dataset_stats( dataset, loader ):
         print('{}: {} - {} samples ({:.1f}%)'.format(val, key, labels[int(val)], labels[int(val)]/labels.sum()*100))
         
 
-
-def load_state( model, optimizer, config ):
-    """Load the state stored in the config into the given model and optimizer.
-    Model and optimizer must match exactly to the stored model, will crash
-    otherwise.
-    
-    Arguments:
-        model {torch.nn.Module} -- the deep neural network
-        optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
-        config {configparser.ConfigParser} -- configuration file
-    
-    Returns:
-        torch.nn.Module -- the deep neural network      
-        torch.optim.Optimizer -- the optimizer to use for the training, e.g. Adam or SGD
-        int -- number of epochs trained
-    """
-    try:
-        checkpoint = torch.load(config['input'].get('checkpoint'))
-        start_epoch = checkpoint['epoch']
-        model.load_state_dict(checkpoint['state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
-        print("=> loaded checkpoint '{}' (epoch {})"
-                .format(config['input'].get('checkpoint'), checkpoint['epoch']))
-    except OSError as e:
-        print("Exception occurred. Did not load model, starting from scratch.\n", e)
-        return model, optimizer, 0
-
-    return model, optimizer, start_epoch
-
 def initialize_meters( config, start_epoch, num_epochs, num_classes ):
     """Initialize the accuracy and loss meters and confusion matrices
     
@@ -510,33 +538,7 @@ def reduce_to_2_classes( confusion, class_groups ):
                                 )
     return confusion_2class
 
-def save_state( model, optimizer, num_epochs, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, classes, filename ):
-    """Save the current state of the model including history of training and test performance
-    
-    Arguments:
-        model {torch.nn.Module} -- the deep neural network
-        optimizer {torch.optim.Optimizer} -- the optimizer to use for the training, e.g. Adam or SGD
-        num_epochs {int} -- the number of executed epochs  
-        train_loss {torch.Array} -- tensor of training losses
-        train_accuracy {torch.Array} -- tensor of training accuracy
-        test_loss {torch.Array} -- tensor of test losses
-        test_accuracy {torch.Array} -- tensor of test accuracy
-        test_confusion {torch.Array} -- tensor of confusion matrices
-        classes {dict} -- class dictionary
-        filename {string} -- target filename
-    """
 
-    torch.save({
-        'epoch': num_epochs,
-        'state_dict': model.state_dict(),
-        'optimizer' : optimizer.state_dict(),
-        'train_loss': train_loss,
-        'train_accuracy': train_accuracy,
-        'test_loss': test_loss,
-        'test_accuracy': test_accuracy,
-        'test_confusion': test_confusion,
-        'classes': classes,
-    }, filename)
 
 def save_performance( train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, classes, filename ):
     """Save the current model performance, e.g. for visualization
@@ -582,22 +584,22 @@ def main():
     
     # loading previous models
     if config['input'].getboolean('resume', False):
-        rc.model, rc.optimizer, start_epoch = load_state( rc.model, rc.optimizer, config )
+        rc.load_state()
 
     print('Model set up. Ready to train.')
 
     # Performance meters initalized (either empty or from file)
-    num_epochs = start_epoch + config['hyperparameter'].getint('epochs', 10)
-    train_loss, train_accuracy, test_loss, test_accuracy, test_confusion = initialize_meters( config, start_epoch, num_epochs, rc.num_classes )
+    num_epochs = rc.start_epoch + config['hyperparameter'].getint('epochs', 10)
+    train_loss, train_accuracy, test_loss, test_accuracy, test_confusion = initialize_meters( config, rc.start_epoch, num_epochs, rc.num_classes )
 
     # Starting training & evaluation
     start_time = time.time()
     best_accuracy = 0
-    for epoch in range(start_epoch, num_epochs):
+    for epoch in range(rc.start_epoch, num_epochs):
         start_time_epoch = time.time()
 
         # Train the model and record training loss & accuracy
-        losses, top1 = rc.train( epoch )
+        losses, top1 = rc.train( )
         train_loss[epoch] = losses.avg
         train_accuracy[epoch] = top1.avg
         
@@ -617,15 +619,15 @@ def main():
         print('Specificity: {:.1f}%'.format(confusion_2class[0,0]/confusion_2class[:,0].sum()*100))
 
         if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
-            save_state( rc.model, rc.optimizer, epoch+1, train_loss[:(epoch+1)], 
+            rc.save_state( train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
-                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], rc.classes, 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
                         config['output'].get('filename', 'model')+'_after_epoch_{}'.format(epoch+1)+config['output'].get('extension', '.ckpt') )
         
         if top1.avg > best_accuracy:
-            save_state( rc.model, rc.optimizer, epoch+1, train_loss[:(epoch+1)], 
+            rc.save_state( train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
-                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], rc.classes, 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
                         config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
             best_accuracy = top1.avg
 
@@ -637,12 +639,12 @@ def main():
         current_time = time.time()
         print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}, validation in {}'
             .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_time_epoch), 
-                pretty_time_left(start_time, epoch+1-start_epoch, num_epochs-start_epoch), 
+                pretty_time_left(start_time, epoch+1-rc.start_epoch, num_epochs-rc.start_epoch), 
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1)))
 
 
     # Save the model checkpoint
-    save_state( rc.model, rc.optimizer, num_epochs, train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, rc.classes,
+    rc.save_state( train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, 
                 config['output'].get('filename', 'model')+config['output'].get('extension', '.ckpt') )
 
     # cleanup
