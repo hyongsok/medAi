@@ -61,6 +61,13 @@ class RetinaChecker(object):
             AverageMeter -- training loss
             AccuracyMeter -- training accuracy
         '''
+        if not self.initialized:
+            print('RetinaChecker not initialized.')
+            return
+
+        if self.train_loader is None:
+            print('No training loader defined. Check configuration.')
+            return
 
         start_time_epoch = time.time()
         losses = AverageMeter()
@@ -109,7 +116,10 @@ class RetinaChecker(object):
             AccuracyMeter -- training accuracy
             numpy.Array -- [num_classes, num_classes] confusion matrix, columns are true classes, rows predictions
         '''
-
+        if not self.initialized:
+            print('RetinaChecker not initialized.')
+            return
+            
         if test_loader is None:
             test_loader = self.test_loader
 
@@ -187,6 +197,12 @@ class RetinaChecker(object):
         '''Loads the data sets from the path given in the config file
         '''
 
+        if not self.config['input'].getboolean('evaluation only', False):
+            self._load_training_data()
+
+        self._load_test_data()
+
+    def _load_training_data( self ):
         image_size = self.config['files'].getint('image size', 299)
         # normalization factors for the DMR dataset were manually derived
         normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
@@ -209,6 +225,19 @@ class RetinaChecker(object):
                 transforms.ToTensor(),
                 normalize,
             ])
+
+        self.train_dataset = torchvision.datasets.ImageFolder(root=self.config['files'].get('train path', './train'),
+                                                        transform=train_transform)
+        
+        self.classes = self.train_dataset.class_to_idx
+        self.num_classes = len(self.classes)
+    
+    def _load_test_data( self ):
+        image_size = self.config['files'].getint('image size', 299)
+        # normalization factors for the DMR dataset were manually derived
+        normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
+                                        std=[0.2287, 0.1286, 0.0723])
+
         test_transform = transforms.Compose([
                 transforms.Resize(size=int(image_size*1.1)),
                 transforms.CenterCrop(size=image_size),
@@ -216,12 +245,10 @@ class RetinaChecker(object):
                 normalize,
             ])
 
-        self.train_dataset = torchvision.datasets.ImageFolder(root=self.config['files'].get('train path', './train'),
-                                                        transform=train_transform)
         self.test_dataset = torchvision.datasets.ImageFolder(root=self.config['files'].get('test path', './test'),
                                                         transform=test_transform)
         
-        self.classes = self.train_dataset.class_to_idx
+        self.classes = self.test_dataset.class_to_idx
         self.num_classes = len(self.classes)
 
     def _create_dataloader( self ):
@@ -234,15 +261,18 @@ class RetinaChecker(object):
         """
 
         batch_size = self.config['hyperparameter'].getint('batch size', 10)
-        num_samples = self.config['files'].getint('samples', 1000)
         
-        train_sampler = self._get_sampler( self.train_dataset, num_samples )
-        test_sampler = None
+        if not self.config['input'].getboolean('evaluation only', False):
+            num_samples = self.config['files'].getint('samples', 1000)
+        
+            train_sampler = self._get_sampler( self.train_dataset, num_samples )
 
-        self.train_loader = torch.utils.data.DataLoader(dataset=self.train_dataset,
-                                                batch_size=batch_size,
-                                                shuffle=False,
-                                                sampler=train_sampler)
+            self.train_loader = torch.utils.data.DataLoader(dataset=self.train_dataset,
+                                                    batch_size=batch_size,
+                                                    shuffle=False,
+                                                    sampler=train_sampler)
+
+        test_sampler = None
 
         self.test_loader = torch.utils.data.DataLoader(dataset=self.test_dataset,
                                                 batch_size=batch_size,
