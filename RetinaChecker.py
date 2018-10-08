@@ -119,7 +119,7 @@ class RetinaChecker(object):
         if not self.initialized:
             print('RetinaChecker not initialized.')
             return
-            
+
         if test_loader is None:
             test_loader = self.test_loader
 
@@ -341,7 +341,10 @@ class RetinaChecker(object):
         otherwise.
         """
         try:
-            checkpoint = torch.load(self.config['input'].get('checkpoint'))
+            if torch.cuda.is_available():
+                checkpoint = torch.load(self.config['input'].get('checkpoint'))
+            else:
+                checkpoint = torch.load(self.config['input'].get('checkpoint'), map_location='cpu')
             self.start_epoch = checkpoint['epoch']
             self.epoch = self.start_epoch
             self.model.load_state_dict(checkpoint['state_dict'])
