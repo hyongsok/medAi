@@ -18,6 +18,10 @@ def main():
     rc = RetinaChecker()
     rc.initialize( config )
 
+    if config['input'].getboolean('evaluation only', False):
+        print('Configuration if for evaluation only. This is the learning script. Please adjust configuration.')
+        return
+
     # loading previous models
     if config['input'].getboolean('resume', False):
         rc.load_state()
@@ -45,7 +49,7 @@ def main():
         start_time_epoch = time.time()
 
         # Train the model and record training loss & accuracy
-        losses, top1 = rc.train( )
+        losses, top1 = rc.train()
         train_loss[epoch] = losses.avg
         train_accuracy[epoch] = top1.avg
         
