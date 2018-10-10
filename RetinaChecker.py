@@ -49,7 +49,6 @@ class RetinaChecker(object):
             desc += 'Optimizer: ' + self.optimizer_name + '\n'
             desc += 'Criterion: ' + self.criterion_name + '\n'
             desc += 'Epochs: ' + self.epoch + '\n'
-
         else:
             desc += 'not initialized'
         return desc
@@ -175,15 +174,8 @@ class RetinaChecker(object):
 
     def _initialize_model( self ):
         model_loader = None
-        if self.model_name.startswith('resnet'):
-            if self.model_name.endswith('18'):
-                model_loader = models.resnet18
-            elif self.model_name.endswith('34'):
-                model_loader = models.resnet34
-            elif self.model_name.endswith('50'):
-                model_loader = models.resnet50
-            else:
-                model_loader = models.resnet18
+        if self.model_name in models.__dict__.keys():
+            model_loader = models.__dict__[self.model_name]
         else:
             print('Could not identify model')
             return
@@ -295,7 +287,7 @@ class RetinaChecker(object):
 
         # Device configuration
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        print(self.device)
+        print('Using device', self.device)
 
         # Loading data sets based on configuration
         self._load_datasets()
