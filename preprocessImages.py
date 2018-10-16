@@ -91,7 +91,7 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=50, 
         return None
 
 
-def process_folder( source, target, inner ):
+def process_folder( source, target, inner = False ):
     folder_list = [f for f in os.listdir(source) if os.path.isdir(os.path.join(source, f))]
     for f in folder_list:
         process_folder(os.path.join(source, f) , os.path.join(target, f), inner)
