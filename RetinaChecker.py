@@ -1,3 +1,4 @@
+import configparser
 import torch
 import torch.nn as nn
 import torchvision
@@ -282,8 +283,13 @@ class RetinaChecker(object):
         Arguments:
             config {configparser.ConfigParser} -- configuration file 
         """
-
-        self.config = config
+        if config is None:
+            raise ValueError('config cannot be None')
+        elif config.__class__ == str:
+            self.config = configparser.ConfigParser()
+            self.config.read(config)
+        else:
+            self.config = config
 
         # Device configuration
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
