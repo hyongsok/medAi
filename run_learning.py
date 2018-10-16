@@ -5,6 +5,7 @@ import numpy as np
 from time_left import pretty_time_left, pretty_print_time
 from RetinaChecker import RetinaChecker
 from helper_functions import print_dataset_stats, initialize_meters, reduce_to_2_classes, save_performance
+from make_default_config import get_config
 
 def main():
 
@@ -13,7 +14,7 @@ def main():
     if len(sys.argv) > 1:
         config.read(sys.argv[1])
     else:
-        config.read('default.cfg')
+        config = get_config()
 
     rc = RetinaChecker()
     rc.initialize( config )
