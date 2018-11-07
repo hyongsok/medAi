@@ -20,7 +20,7 @@ def main():
     rc.initialize( config )
 
     if config['input'].getboolean('evaluation only', False):
-        print('Configuration if for evaluation only. This is the learning script. Please adjust configuration.')
+        print('Configuration file has evaluation only flag set. This is the learning script. Please adjust configuration or use the appropriate script.')
         return
 
     # loading previous models
