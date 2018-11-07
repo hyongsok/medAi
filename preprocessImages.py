@@ -7,16 +7,6 @@ import cv2
 import warnings
 import datetime
 
-def crop_image_old( im, thresh=16 ):
-    mask = (im[:,:,0]>thresh) | (im[:,:,1]>thresh) | (im[:,:,2]>thresh)
-    lower_border = np.where(mask.sum(1)>0)[0][0]
-    upper_border = np.where(mask.sum(1)>0)[0][-1]
-    left_border = np.where(mask.sum(0)>0)[0][0]
-    right_border = np.where(mask.sum(0)>0)[0][-1]
-    im_cropped = im[lower_border:upper_border,left_border:right_border,:]
-    mask_cropped = mask[lower_border:upper_border,left_border:right_border]
-    return im_cropped, mask_cropped
-
 def crop_image( im, inner_box=False ):
     boxes = find_retina_boxes( im )
     if boxes is None:
@@ -103,7 +93,7 @@ def process_folder( source, target, inner = False ):
         pass
     tic = time.time()
     for i, f in enumerate(file_list):
-        print(os.path.join(source, f))
+        #print(os.path.join(source, f))
         if os.path.exists(os.path.join(target, f)+'.cropped.png'):
             print('skipping', os.path.join(target, f)+'.cropped.png')
             continue
