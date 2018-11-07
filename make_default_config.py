@@ -8,6 +8,13 @@ def get_config():
     """
     config = configparser.ConfigParser()
 
+    config['network'] = {
+    'model': 'resnet18',
+    'pretrained': False,
+    'optimizer': 'Adam',
+    'criterion': 'CrossEntropyLoss'
+    }
+
     config['hyperparameter'] = {
     'epochs': 50,
     'batch size': 64,
@@ -56,4 +63,4 @@ def save_default_config( filename = 'default.cfg' ):
         config.write(fopen)
 
 if __name__ == '__main__':
-    save_default_config('test2.cfg')
+    save_default_config('default.cfg')

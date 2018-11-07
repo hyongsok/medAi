@@ -46,7 +46,11 @@ class RetinaChecker(object):
     def __str__( self ):
         desc = 'RetinaChecker\n'
         if self.initialized:
-            desc += 'Network: ' + self.model_name + '\n'
+            desc += 'Network: ' + self.model_name
+            if self.model_pretrained:
+                desc += ' (pretrained)\n'
+            else:
+                desc += '\n'
             desc += 'Optimizer: ' + self.optimizer_name + '\n'
             desc += 'Criterion: ' + self.criterion_name + '\n'
             desc += 'Epochs: ' + self.epoch + '\n'
@@ -154,8 +158,8 @@ class RetinaChecker(object):
 
     def _initialize_optimizer( self ):
         optimizer_loader = None
-        if self.optimizer_name == 'Adam':
-            optimizer_loader = torch.optim.Adam
+        if self.optimizer_name in torch.optim.__dict__.keys():
+            optimizer_loader = torch.optim.__dict__[self.optimizer_name]
         else:
             print('Could not identify optimizer')
             return
@@ -165,8 +169,8 @@ class RetinaChecker(object):
 
     def _initialize_criterion( self ):
         criterion_loader = None
-        if self.criterion_name == 'CrossEntropy':
-            criterion_loader = nn.CrossEntropyLoss
+        if self.criterion_name in nn.__dict__.keys():
+            criterion_loader = nn.__dict__[self.criterion_name]
         else:
             print('Could not identify criterion')
             return
@@ -272,6 +276,17 @@ class RetinaChecker(object):
                                                 shuffle=False,
                                                 sampler=test_sampler)
 
+    def _process_config( self ):
+        """Parses the config file stored in the config member and sets the
+        member variables accordingly. Important before initializing model,
+        optimizer, or criterion.
+        """
+
+        self.model_name = self.config['network'].get('model', 'resnet18')
+        self.optimizer_name = self.config['network'].get('optimizer', 'Adam')
+        self.criterion_name = self.config['network'].get('criterion', 'CrossEntropy')
+
+        self.model_pretrained = self.config['network'].getboolean('pretrained', False)
 
     def initialize( self, config ):
         """Initializes the RetinaChecker from given configuration file. Sets the
@@ -290,6 +305,8 @@ class RetinaChecker(object):
             self.config.read(config)
         else:
             self.config = config
+
+        self._process_config()
 
         # Device configuration
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
