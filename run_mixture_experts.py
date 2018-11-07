@@ -1,5 +1,6 @@
 import sys
 import json
+import configparser
 import numpy as np
 import torch
 from RetinaChecker import RetinaChecker
@@ -58,24 +59,22 @@ def main():
 
 
     # Reading configuration file
-    configs = []
-    if len(sys.argv) > 1:
-        with open(sys.argv[1], 'r') as f:
-            configs = json.load(f)
+    config = configparser.ConfigParser()
+    checkpoints = None
+    if len(sys.argv) > 2:
+        with open(sys.argv[2], 'r') as f:
+            checkpoints = json.load(f)
+        config.read(sys.argv[1])
     else:
-        print('Usage: python run_mixture_experts experts.json')
+        print('Usage: python run_mixture_experts experts.cfg experts.json')
         return
 
     experts = []
-    for config in configs:
+    for checkpoint in checkpoints:
+        config['input']['checkpoint'] = checkpoint
         rc = RetinaChecker()
         rc.initialize( config )
-
-        # loading previous models
-        if not rc.config['input'].getboolean('resume', False):
-            print('Please set the resume parameter in ' + config + ' to True')
-            return
-    
+   
         rc.load_state()
         experts.append(rc)
 
