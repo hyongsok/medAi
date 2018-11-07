@@ -40,8 +40,6 @@ def validate( experts ):
                 all_outputs[expert_number, counter:counter+len(predicted), :] = outputs.data
                 counter += len(predicted)
     
-    np.savez('temp.npz', all_labels=all_labels, all_predictions=all_predictions, all_outputs=all_outputs)
-
     predicted = np.zeros_like(all_labels)
     for i in range(all_labels.size):
         classes, counts = np.unique(all_predictions[:,i], return_counts=True)
@@ -52,6 +50,8 @@ def validate( experts ):
     for pred, lab in zip(predicted, all_labels):
         confusion[pred, lab] += 1
     
+    np.savez('temp.npz', all_labels=all_labels, all_predictions=all_predictions, all_outputs=all_outputs, predicted=predicted, confusion=confusion, classes=experts[0].classes)
+
 
     return top1, confusion
 
