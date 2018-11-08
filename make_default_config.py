@@ -41,7 +41,8 @@ def get_config():
     'save during training': True,
     'save every nth epoch': 1,
     'filename': 'model',
-    'extension': '.ckpt'
+    'extension': '.ckpt',
+    'cleanup': True
     }
 
     config['input'] = {

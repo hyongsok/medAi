@@ -46,6 +46,9 @@ def main():
     # Starting training & evaluation
     start_time = time.time()
     best_accuracy = 0
+    best_accuracy_2class = 0
+    best_sensitivity = 0
+    best_specificity = 0
     for epoch in range(rc.start_epoch, num_epochs):
         start_time_epoch = time.time()
 
@@ -64,10 +67,13 @@ def main():
         print('Confusion matrix:\n', (confusion))
 
         confusion_2class = reduce_to_2_classes( confusion, [(1,3), (0,2,4)])
-        print('Accuracy: {:.1f}%'.format(np.diag(confusion_2class).sum()/confusion_2class.sum()*100))
+        accuracy_2class = np.diag(confusion_2class).sum()/confusion_2class.sum()
+        sensitivity_2class = confusion_2class[1,1]/confusion_2class[:,1].sum()
+        specificity_2class = confusion_2class[0,0]/confusion_2class[:,0].sum()
+        print('Accuracy: {:.1f}%'.format(accuracy_2class*100))
         print(confusion_2class)
-        print('Sensitivity: {:.1f}%'.format(confusion_2class[1,1]/confusion_2class[:,1].sum()*100))
-        print('Specificity: {:.1f}%'.format(confusion_2class[0,0]/confusion_2class[:,0].sum()*100))
+        print('Sensitivity: {:.1f}%'.format(sensitivity_2class*100))
+        print('Specificity: {:.1f}%'.format(specificity_2class*100))
 
         if config['output'].getboolean('save during training', False) and ((epoch+1) % config['output'].getint('save every nth epoch', 10) == 0):
             rc.save_state( train_loss[:(epoch+1)], 
@@ -81,6 +87,27 @@ def main():
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
                         config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
             best_accuracy = top1.avg
+        
+        if accuracy_2class > best_accuracy_2class:
+            rc.save_state( train_loss[:(epoch+1)], 
+                        train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
+                        config['output'].get('filename', 'model')+'_best_accuracy_2class'+config['output'].get('extension', '.ckpt') )
+            best_accuracy_2class = accuracy_2class
+
+        if sensitivity_2class > best_sensitivity:
+            rc.save_state( train_loss[:(epoch+1)], 
+                        train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
+                        config['output'].get('filename', 'model')+'_best_sensitivity_2class'+config['output'].get('extension', '.ckpt') )
+            best_sensitivity = sensitivity_2class
+
+        if specificity_2class > best_specificity:
+            rc.save_state( train_loss[:(epoch+1)], 
+                        train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
+                        config['output'].get('filename', 'model')+'_best_specificity_2class'+config['output'].get('extension', '.ckpt') )
+            best_specificity = specificity_2class
 
         save_performance( train_loss[:(epoch+1)], train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                 test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], rc.classes, 
@@ -99,17 +126,18 @@ def main():
                 config['output'].get('filename', 'model')+config['output'].get('extension', '.ckpt') )
 
     # cleanup
-    print('Cleaning up...')
-    delete_files = glob.glob(config['output'].get('filename', 'model')+'_validation_after_epoch_*.dat')
-    if config['output'].getboolean('save during training', False):
-        delete_files += glob.glob(config['output'].get('filename', 'model')+'_after_epoch_*'+config['output'].get('extension', '.ckpt'))
-    
-    for f in delete_files:
-        try:
-            print('deleting', os.path.join(os.path.abspath(os.curdir), f))
-            os.remove(os.path.join(os.path.abspath(os.curdir), f))
-        except OSError as e:
-            print(e)
+    if config['output'].getboolean('cleanup', True):
+        print('Cleaning up...')
+        delete_files = glob.glob(config['output'].get('filename', 'model')+'_validation_after_epoch_*.dat')
+        if config['output'].getboolean('save during training', False):
+            delete_files += glob.glob(config['output'].get('filename', 'model')+'_after_epoch_*'+config['output'].get('extension', '.ckpt'))
+        
+        for f in delete_files:
+            try:
+                print('deleting', os.path.join(os.path.abspath(os.curdir), f))
+                os.remove(os.path.join(os.path.abspath(os.curdir), f))
+            except OSError as e:
+                print(e)
 
 if __name__ == '__main__':
     main()
