@@ -33,7 +33,7 @@ def plot_loss( train_loss, test_loss ):
     plt.legend()
     plt.xlabel('epochs')
     plt.ylabel('loss')
-    plt.xticks(np.arange(0, train_loss.size(0), train_loss.size(0)%10))
+    plt.xticks(np.arange(0, train_loss.size(0), int(train_loss.size(0)/10)))
     plt.savefig('loss.png')
     plt.clf()
 
@@ -43,7 +43,7 @@ def plot_accuracy( train_accuracy, test_accuracy ):
     plt.legend()
     plt.xlabel('epochs')
     plt.ylabel('accuracy')
-    plt.xticks(np.arange(0, test_accuracy.size(0), test_accuracy.size(0)%10))
+    plt.xticks(np.arange(0, test_accuracy.size(0), int(test_accuracy.size(0)/10)))
     plt.savefig('accuracy.png')
     plt.clf()
 
