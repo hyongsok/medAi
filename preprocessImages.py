@@ -101,6 +101,8 @@ def process_folder( source, target, inner = False ):
             im = imageio.imread(os.path.join(source, f))
         except ValueError as e:
             print('Error while reading file', os.path.join(source, f), '\n', e)
+            continue
+            
         im = crop_image( im, inner )
         #im = normalize_image( im, mask )
         if im is None:
