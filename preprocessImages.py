@@ -97,7 +97,10 @@ def process_folder( source, target, inner = False ):
         if os.path.exists(os.path.join(target, f)+'.cropped.png'):
             print('skipping', os.path.join(target, f)+'.cropped.png')
             continue
-        im = imageio.imread(os.path.join(source, f))
+        try:
+            im = imageio.imread(os.path.join(source, f))
+        except ValueError as e:
+            print('Error while reading file', os.path.join(source, f), '\n', e)
         im = crop_image( im, inner )
         #im = normalize_image( im, mask )
         if im is None:
