@@ -12,7 +12,8 @@ def get_config():
     'model': 'resnet18',
     'pretrained': False,
     'optimizer': 'Adam',
-    'criterion': 'CrossEntropyLoss'
+    'criterion': 'CrossEntropyLoss',
+    'multiclass': False
     }
 
     config['hyperparameter'] = {
