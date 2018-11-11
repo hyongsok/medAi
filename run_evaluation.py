@@ -29,7 +29,7 @@ def main():
     print('Classes: {}'.format(rc.classes))
     print('Confusion matrix:\n', (confusion))
 
-    confusion_2class = reduce_to_2_classes( confusion, [(1,3), (0,2,4)])
+    confusion_2class = reduce_to_2_classes( confusion, [(0,1), (2,3,4)])
     print('Accuracy: {:.1f}%'.format(np.diag(confusion_2class).sum()/confusion_2class.sum()*100))
     print(confusion_2class)
     print('Sensitivity: {:.1f}%'.format(confusion_2class[1,1]/confusion_2class[:,1].sum()*100))
