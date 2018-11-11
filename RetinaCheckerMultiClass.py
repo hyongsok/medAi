@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
-from torchvision import models
 import time
 from time_left import pretty_time_left, pretty_print_time
 import numpy as np
@@ -85,7 +84,7 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
         self.model.eval()  # eval mode (batchnorm uses moving mean/variance instead of mini-batch mean/variance)
         with torch.no_grad():
             losses = AverageMeter()
-            top1 = AccuracyMeter()
+            accuracy = AccuracyMeter()
 
             confusion = torch.zeros((self.num_classes, self.num_classes), dtype=torch.float)
 
@@ -101,21 +100,21 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
 
                 num_correct = self._evaluate_performance( labels, outputs )
 
-                top1.update(num_correct, labels.size(0))
+                accuracy.update(num_correct, labels.size(0))
 
-                print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), num_correct, top1.avg*100, loss.item()))
+                print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), num_correct, accuracy.avg*100, loss.item()))
                 #for pred, lab in zip(predicted, groundtruth):
                 #    confusion[pred, lab] += 1
         
-        return losses, top1, confusion
+        return losses, accuracy, confusion
 
 
     def _evaluate_performance( self, labels, outputs ):
         predicted = nn.Sigmoid()(outputs).round()
-        print(outputs)
-        print(predicted)
-        print(labels)
-        print(labels.size(0))
+        #print(outputs)
+        #print(predicted)
+        #print(labels)
+        #print(labels.size(0))
         perf = (predicted == labels)
         num_correct = (perf.sum(1)/labels.size(1)).sum().item()
         return num_correct
@@ -156,20 +155,6 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
         hamming_sum = (missing_labels+wrong_labels).sum().item()
         return hamming_sum, labels.size(0)*labels.size(1)
 
-    def _initialize_model( self ):
-        model_loader = None
-        if self.model_name in models.__dict__.keys():
-            model_loader = models.__dict__[self.model_name]
-        else:
-            print('Could not identify model')
-            return
-        
-        self.model = model_loader( pretrained=self.model_pretrained, num_classes=self.num_classes, **self.model_kwargs)
-        num_ftrs = self.model.fc.in_features
-        self.model.fc = nn.Sequential( nn.Linear(num_ftrs, self.num_classes) )
-        self.model = self.model.to(self.device)
-
-
     def _load_training_data( self ):
         image_size = self.config['files'].getint('image size', 299)
         # normalization factors for the DMR dataset were manually derived
@@ -185,14 +170,20 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
         hue = self.config['transform'].getint('hue', 0)
         color_jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
         
-        train_transform = transforms.Compose([
+        transform_list = [
                 color_jitter,
                 rotation,
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomResizedCrop(size=image_size, scale=(0.25,1.0), ratio=(1,1)),
                 transforms.ToTensor(),
-                normalize,
-            ])
+            ]
+        
+        if self.normalize_data:
+            normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
+                                            std=[0.2287, 0.1286, 0.0723])
+            transform_list.append(normalize)
+
+        train_transform = transforms.Compose(transform_list)
 
         self.train_dataset = EnhancedImageFolder.BinaryMultilabelImageFolder(root=self.config['files'].get('train path', './train'),
                                                         transform=train_transform, target_transform=None)
@@ -203,15 +194,19 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
     def _load_test_data( self ):
         image_size = self.config['files'].getint('image size', 299)
         # normalization factors for the DMR dataset were manually derived
-        normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
-                                        std=[0.2287, 0.1286, 0.0723])
 
-        test_transform = transforms.Compose([
+        transform_list = [
                 transforms.Resize(size=int(image_size*1.1)),
                 transforms.CenterCrop(size=image_size),
                 transforms.ToTensor(),
-                normalize,
-            ])
+            ]
+        
+        if self.normalize_data:
+            normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
+                                            std=[0.2287, 0.1286, 0.0723])
+            transform_list.append(normalize)
+
+        test_transform = transforms.Compose(transform_list)
 
         self.test_dataset = EnhancedImageFolder.BinaryMultilabelImageFolder(root=self.config['files'].get('test path', './test'),
                                                         transform=test_transform, target_transform=None)

@@ -1,4 +1,5 @@
 import configparser
+import warnings
 import torch
 import torch.nn as nn
 import torchvision
@@ -32,6 +33,7 @@ class RetinaChecker(object):
         self.test_dataset = None
         self.num_classes = None
         self.classes = None
+        self.normalize_data = True
 
         self.train_loader = None
         self.test_loader = None
@@ -161,7 +163,7 @@ class RetinaChecker(object):
         if self.optimizer_name in torch.optim.__dict__.keys():
             optimizer_loader = torch.optim.__dict__[self.optimizer_name]
         else:
-            print('Could not identify optimizer')
+            warnings.warn('Could not identify optimizer')
             return
 
         self.learning_rate = self.config['hyperparameter'].getfloat('learning rate', 0.01)
@@ -172,7 +174,7 @@ class RetinaChecker(object):
         if self.criterion_name in nn.__dict__.keys():
             criterion_loader = nn.__dict__[self.criterion_name]
         else:
-            print('Could not identify criterion')
+            warnings.warn('Could not identify criterion')
             return
 
         self.criterion = criterion_loader()
@@ -182,10 +184,10 @@ class RetinaChecker(object):
         if self.model_name in models.__dict__.keys():
             model_loader = models.__dict__[self.model_name]
         else:
-            print('Could not identify model')
+            warnings.warn('Could not identify model')
             return
         
-        self.model = model_loader( pretrained=self.model_pretrained, num_classes=self.num_classes, **self.model_kwargs)
+        self.model = model_loader( pretrained=self.model_pretrained, **self.model_kwargs)
         num_ftrs = self.model.fc.in_features
         self.model.fc = nn.Linear(num_ftrs, self.num_classes)
         self.model = self.model.to(self.device)
@@ -214,14 +216,20 @@ class RetinaChecker(object):
         hue = self.config['transform'].getint('hue', 0)
         color_jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
         
-        train_transform = transforms.Compose([
+        transform_list = [
                 color_jitter,
                 rotation,
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomResizedCrop(size=image_size, scale=(0.25,1.0), ratio=(1,1)),
                 transforms.ToTensor(),
-                normalize,
-            ])
+            ]
+        
+        if self.normalize_data:
+            normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
+                                            std=[0.2287, 0.1286, 0.0723])
+            transform_list.append(normalize)
+
+        train_transform = transforms.Compose(transform_list)
 
         self.train_dataset = torchvision.datasets.ImageFolder(root=self.config['files'].get('train path', './train'),
                                                         transform=train_transform)
@@ -235,12 +243,16 @@ class RetinaChecker(object):
         normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
                                         std=[0.2287, 0.1286, 0.0723])
 
-        test_transform = transforms.Compose([
+        transform_list = [
                 transforms.Resize(size=int(image_size*1.1)),
                 transforms.CenterCrop(size=image_size),
                 transforms.ToTensor(),
-                normalize,
-            ])
+            ]
+        
+        if self.normalize_data:
+            normalize = transforms.Normalize(mean=[0.3198, 0.1746, 0.0901],
+                                            std=[0.2287, 0.1286, 0.0723])
+            transform_list.append(normalize)
 
         self.test_dataset = torchvision.datasets.ImageFolder(root=self.config['files'].get('test path', './test'),
                                                         transform=test_transform)
