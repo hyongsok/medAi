@@ -102,23 +102,22 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
                 num_correct = self._evaluate_performance( labels, outputs )
 
                 accuracy.update(num_correct, labels.size(0))
+                predicted = torch.nn.Sigmoid()(outputs)
 
-                print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), num_correct, accuracy.avg*100, loss.item()))
-                #for pred, lab in zip(predicted, groundtruth):
-                #    confusion[pred, lab] += 1
+                for pred, lab in zip(predicted.argmax(1), labels.argmax(1)):
+                    confusion[pred, lab] += 1
+
+                print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), num_correct, num_correct/labels.size(0)*100, loss.item()))
+                
         
         return losses, accuracy, confusion
 
 
     def _evaluate_performance( self, labels, outputs ):
         predicted = nn.Sigmoid()(outputs)
-        #print(outputs)
-        #print(predicted)
-        #print(labels)
-        #print(labels.size(0))
-        #perf = (predicted == labels)
         perf = (predicted.argmax(1)==labels.argmax(1))
-        num_correct = (perf.sum()/labels.size(1)).sum().item()
+        num_correct = float(perf.sum())
+        #print(outputs, predicted, labels, perf, perf.sum().item(), labels.size(0))
         return num_correct
 
     def _exact_match_ratio( self, labels, predicted ):
