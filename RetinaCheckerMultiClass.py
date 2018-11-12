@@ -111,13 +111,13 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
 
 
     def _evaluate_performance( self, labels, outputs ):
-        predicted = nn.Sigmoid()(outputs).round()
+        predicted = nn.Sigmoid()(outputs)
         #print(outputs)
         #print(predicted)
         #print(labels)
         #print(labels.size(0))
         #perf = (predicted == labels)
-        perf = (predicted.numpy().argmax(1)==labels.numpy().argmax(1))
+        perf = (predicted.argmax(1)==labels.argmax(1))
         num_correct = (perf.sum()/labels.size(1)).sum().item()
         return num_correct
 
