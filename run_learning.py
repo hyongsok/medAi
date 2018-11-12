@@ -58,16 +58,16 @@ def main():
         start_time_epoch = time.time()
 
         # Train the model and record training loss & accuracy
-        losses, top1 = rc.train()
+        losses, accuracy = rc.train()
         train_loss[epoch] = losses.avg
-        train_accuracy[epoch] = top1.avg
+        train_accuracy[epoch] = accuracy.avg
         
-        losses, top1, confusion = rc.validate()
+        losses, accuracy, confusion = rc.validate()
         test_loss[epoch] = losses.avg
-        test_accuracy[epoch] = top1.avg
+        test_accuracy[epoch] = accuracy.avg
         test_confusion[epoch,:,:] = confusion
 
-        print('Test Accuracy of the model on the {} test images: {} %'.format(top1.count, top1.avg*100))
+        print('Test Accuracy of the model on the {} test images: {} %'.format(accuracy.count, accuracy.avg*100))
         print('Classes: {}'.format(rc.classes))
         print('Confusion matrix:\n', (confusion))
 
@@ -86,12 +86,12 @@ def main():
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
                         config['output'].get('filename', 'model')+'_after_epoch_{}'.format(epoch+1)+config['output'].get('extension', '.ckpt') )
         
-        if top1.avg > best_accuracy:
+        if accuracy.avg > best_accuracy:
             rc.save_state( train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
                         config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
-            best_accuracy = top1.avg
+            best_accuracy = accuracy.avg
         
         if accuracy_2class > best_accuracy_2class:
             rc.save_state( train_loss[:(epoch+1)], 
