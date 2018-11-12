@@ -30,7 +30,7 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
 
         start_time_epoch = time.time()
         losses = AverageMeter()
-        top1 = AccuracyMeter()
+        accuracy = AccuracyMeter()
         self.model.train()
 
         for i, (images, labels) in enumerate(self.train_loader):
@@ -45,6 +45,7 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
             losses.update(loss.item(), images.size(0))
 
             num_correct = self._evaluate_performance( labels, outputs )
+            accuracy.update(num_correct, labels.size(0))
 
             # Backward and optimize
             self.optimizer.zero_grad()
@@ -57,7 +58,7 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
                     num_correct/labels.size(0)*100,
                     pretty_print_time(current_time-start_time_epoch), 
                     pretty_time_left(start_time_epoch, i+1, len(self.train_loader))))
-        print('Epoch learning completed. Training accuracy {:.1f}%'.format(top1.avg*100))
+        print('Epoch learning completed. Training accuracy {:.1f}%'.format(accuracy.avg*100))
 
         self.epoch += 1
         return losses, top1   
@@ -115,7 +116,8 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
         #print(predicted)
         #print(labels)
         #print(labels.size(0))
-        perf = (predicted == labels)
+        #perf = (predicted == labels)
+        perf = (predicted.numpy().argmax(1)==labels.numpy().argmax(1))
         num_correct = (perf.sum(1)/labels.size(1)).sum().item()
         return num_correct
 
