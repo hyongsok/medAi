@@ -23,6 +23,7 @@ def get_config():
     }
 
     config['files'] = {
+    'label file': '',
     'train path': './train',
     'test path': './test',
     'show patch stats': False,

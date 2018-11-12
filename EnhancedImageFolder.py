@@ -2,6 +2,7 @@ import os
 import csv
 import numpy as np
 from PIL import Image
+import sklearn.preprocessing
 import torch
 from torchvision.datasets import ImageFolder
 
@@ -43,15 +44,15 @@ class BinaryMultilabelImageFolder(ImageFolder):
         
         super().__init__(root=root, transform=transform, target_transform=target_transform, loader=loader)
 
-        self.samples, self.targets = self._convert_to_binart_labels()
+        self.samples, self.targets = self._convert_to_binary_labels()
         self.imgs = self.samples
 
-    def _convert_to_binart_labels(self):
+    def _convert_to_binary_labels(self):
         target = []
         images = []
-        binary_labels = np.eye(len(self.classes), dtype=np.int)
-        for filename, class_index in self.samples:
-            target.append(torch.Tensor(binary_labels[class_index]))
+        binary_labels = sklearn.preprocessing.label_binarize([y[1] for y in self.samples], range(len(self.classes)))
+        for ii, (filename, _) in enumerate(self.samples):
+            target.append(torch.Tensor(binary_labels[ii]))
             images.append((filename, target[-1]))
         
         return images, target
@@ -88,25 +89,28 @@ class BinaryMultilabelCSVImageFolder(ImageFolder):
 
         super().__init__(root=root, loader=loader, transform=transform, target_transform=target_transform)
 
-        self.samples, self.targets, self.classes = self._parse_csv(csv_file)
+        self.samples, self.targets, self.classes = self._parse_csv(csv_file, root)
         self.imgs = self.samples
+        self.class_to_idx = dict(enumerate(self.classes))
         
 
-    def _parse_csv(self, csv_file):
+    def _parse_csv(self, csv_file, root):
         with open(csv_file) as f:
             reader = csv.reader(f, delimiter=',', quotechar='"')
             header = next(reader)
             classes = header[1:]
             target = []
             images = []
-            existing_files = [os.path.basename(s[0]) for s in self.samples]
+            existing_files = [s[0].replace(root, '') for s in self.samples]
             for row in reader:
                 filename = row[0]
                 if filename in existing_files:
-                    images.append((filename, tuple(row[1:])))
-                    target.append(torch.Tensor(row[1:]))
+                    target.append(torch.Tensor([int(r) for r in row[1:]]))
+                    images.append((os.path.join(root, filename), target[-1]))
                 else:
-                    print('File {} not found in image folder. Skipping entry.')
+                    print('File {} not found in image folder. Skipping entry.'.format(filename))
+            if len(target) == 0:
+                raise ValueError('Could not read any file. Did you forget the slash or backslash at the end of the root (=train & test) path?')
         
         return images, target, classes
 

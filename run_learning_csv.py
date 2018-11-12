@@ -3,8 +3,7 @@ import configparser
 import time
 import numpy as np
 from time_left import pretty_time_left, pretty_print_time
-from RetinaChecker import RetinaChecker
-from RetinaCheckerMultiClass import RetinaCheckerMultiClass
+from RetinaCheckerCSV import RetinaCheckerCSV
 from helper_functions import print_dataset_stats, initialize_meters, reduce_to_2_classes, save_performance
 from make_default_config import get_config
 
@@ -17,10 +16,7 @@ def main():
     else:
         config = get_config()
 
-    if config['network'].getboolean('multiclass', False):
-        rc = RetinaCheckerMultiClass()
-    else:
-        rc = RetinaChecker()
+    rc = RetinaCheckerCSV()
     
     rc.initialize( config )
 
@@ -47,6 +43,7 @@ def main():
     # Performance meters initalized (either empty or from file)
     num_epochs = rc.start_epoch + config['hyperparameter'].getint('epochs', 10)
     train_loss, train_accuracy, test_loss, test_accuracy, test_confusion = initialize_meters( config, rc.start_epoch, num_epochs, rc.num_classes )
+    test_confusion = np.zeros((test_confusion.shape[2],2,2))
 
     # Starting training & evaluation
     start_time = time.time()
@@ -76,7 +73,8 @@ def main():
         print('Classes: {}'.format(rc.classes))
         print('Confusion matrix:\n', (confusion))
 
-        confusion_2class = reduce_to_2_classes( confusion, [(0,1), (2,3,4)])
+        #confusion_2class = reduce_to_2_classes( confusion, [(0,1), (2,3,4)])
+        confusion_2class = confusion
         accuracy_2class = np.diag(confusion_2class).sum()/confusion_2class.sum()
         sensitivity_2class = confusion_2class[1,1]/confusion_2class[:,1].sum()
         specificity_2class = confusion_2class[0,0]/confusion_2class[:,0].sum()
