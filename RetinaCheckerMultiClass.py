@@ -61,7 +61,7 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
         print('Epoch learning completed. Training accuracy {:.1f}%'.format(accuracy.avg*100))
 
         self.epoch += 1
-        return losses, top1   
+        return losses, accuracy   
 
 
     def validate( self, test_loader = None ):
@@ -118,7 +118,7 @@ class RetinaCheckerMultiClass(RetinaChecker.RetinaChecker):
         #print(labels.size(0))
         #perf = (predicted == labels)
         perf = (predicted.numpy().argmax(1)==labels.numpy().argmax(1))
-        num_correct = (perf.sum(1)/labels.size(1)).sum().item()
+        num_correct = (perf.sum()/labels.size(1)).sum().item()
         return num_correct
 
     def _exact_match_ratio( self, labels, predicted ):

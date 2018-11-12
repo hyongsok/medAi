@@ -254,6 +254,8 @@ class RetinaChecker(object):
                                             std=[0.2287, 0.1286, 0.0723])
             transform_list.append(normalize)
 
+        test_transform = transforms.Compose(transform_list)
+
         self.test_dataset = torchvision.datasets.ImageFolder(root=self.config['files'].get('test path', './test'),
                                                         transform=test_transform)
         
