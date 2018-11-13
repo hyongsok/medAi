@@ -1,5 +1,6 @@
 import os
 import csv
+from pathlib import Path
 import numpy as np
 from PIL import Image
 import sklearn.preprocessing
@@ -101,14 +102,14 @@ class BinaryMultilabelCSVImageFolder(ImageFolder):
             classes = header[1:]
             target = []
             images = []
-            existing_files = [s[0].replace(root, '') for s in self.samples]
+            root_path = Path(root)
             for row in reader:
-                filename = row[0]
-                if filename in existing_files:
+                filename = root_path / Path(row[0])
+                if filename.exists():
                     target.append(torch.Tensor([int(r) for r in row[1:]]))
-                    images.append((os.path.join(root, filename), target[-1]))
+                    images.append((filename, target[-1]))
                 else:
-                    print('File {} not found in image folder. Skipping entry.'.format(filename))
+                    print('File {} not found in folder {}. Skipping entry.'.format(filename, root))
             if len(target) == 0:
                 raise ValueError('Could not read any file. Did you forget the slash or backslash at the end of the root (=train & test) path?')
         
