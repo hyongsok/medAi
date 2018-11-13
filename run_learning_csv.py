@@ -43,7 +43,7 @@ def main():
     # Performance meters initalized (either empty or from file)
     num_epochs = rc.start_epoch + config['hyperparameter'].getint('epochs', 10)
     train_loss, train_accuracy, test_loss, test_accuracy, test_confusion = initialize_meters( config, rc.start_epoch, num_epochs, rc.num_classes )
-    test_confusion = np.zeros((test_confusion.shape[2],2,2))
+    test_confusion = np.zeros((test_confusion.shape[0],2,2))
 
     # Starting training & evaluation
     start_time = time.time()
