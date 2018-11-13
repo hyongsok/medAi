@@ -2,9 +2,10 @@ import sys, os, glob
 import configparser
 import time
 import numpy as np
+import torch
 from time_left import pretty_time_left, pretty_print_time
 from RetinaCheckerCSV import RetinaCheckerCSV
-from helper_functions import print_dataset_stats, initialize_meters, reduce_to_2_classes, save_performance
+from helper_functions import print_dataset_stats, initialize_meters, save_performance
 from make_default_config import get_config
 
 def main():
@@ -43,7 +44,7 @@ def main():
     # Performance meters initalized (either empty or from file)
     num_epochs = rc.start_epoch + config['hyperparameter'].getint('epochs', 10)
     train_loss, train_accuracy, test_loss, test_accuracy, test_confusion = initialize_meters( config, rc.start_epoch, num_epochs, rc.num_classes )
-    test_confusion = np.zeros((test_confusion.shape[0],2,2))
+    test_confusion = torch.zeros((test_confusion.shape[0],2,2))
 
     # Starting training & evaluation
     start_time = time.time()
