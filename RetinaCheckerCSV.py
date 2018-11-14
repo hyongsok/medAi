@@ -135,9 +135,9 @@ class RetinaCheckerCSV(RetinaCheckerMultiClass.RetinaCheckerMultiClass):
     def _evaluate_performance( self, labels, outputs ):
         predicted = nn.Sigmoid()(outputs)
         #perf = (predicted[:,:5].argmax(1)==labels[:,:5].argmax(1))
-        perf2 = (predicted[:,5:].round()==labels[:,5:])
+        perf2 = (predicted[:,5].round()==labels[:,5])
         #print(perf2)
-        num_correct = float(perf2[:,0].sum())
+        num_correct = float(perf2.sum())
         #print(outputs, predicted, labels, perf, perf.sum().item(), labels.size(0))
         return num_correct
 
