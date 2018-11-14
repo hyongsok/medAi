@@ -1,4 +1,5 @@
 import os
+import sys
 import csv
 from pathlib import Path
 from PIL import Image
@@ -17,6 +18,88 @@ def pil_loader(path):
 
 def default_loader(path):
     return pil_loader(path)
+
+def get_image_files(directory, class_index, extensions):
+    images = []
+    d = os.path.expanduser(directory)
+    for root, _, fnames in sorted(os.walk(d)):
+        for fname in sorted(fnames):
+            if has_file_allowed_extension(fname, extensions):
+                path = os.path.join(root, fname)
+                item = (path, class_index)
+                images.append(item)
+
+    return images
+
+def has_file_allowed_extension(filename, extensions):
+    """Checks if a file is an allowed extension.
+    Args:
+        filename (string): path to a file
+        extensions (iterable of strings): extensions to consider (lowercase)
+    Returns:
+        bool: True if the filename ends with one of given extensions
+    """
+    filename_lower = filename.lower()
+    return any(filename_lower.endswith(ext) for ext in extensions)
+
+
+IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif']
+
+
+class RobustImageFolder(ImageFolder):
+    """ImageFolder that samples from subdirectories and the directory itself.
+    """
+    def __init__(self, root, loader=default_loader, transform=None, target_transform=None, extensions=IMG_EXTENSIONS):
+
+        try:
+            super().__init__(root=root, loader=loader, transform=transform, target_transform=target_transform)
+        except RuntimeError:
+            self.root = root
+            self.loader = loader
+            self.extensions = extensions
+
+            self.classes = []
+            self.class_to_idx = dict()
+            self.samples = []
+            self.targets = []
+            self.imgs = self.samples
+
+            self.transform = transform
+            self.target_transform = target_transform
+
+        self.classes.append('.')
+        self.class_to_idx = dict(enumerate(self.classes))
+        root_images = get_image_files(root, len(self.classes)-1, extensions)
+        self.samples +=  root_images
+        if len(self.samples) == 0:
+            raise(RuntimeError("Found 0 files in " + root + " or its subfolders\n"
+                               "Supported extensions are: " + ",".join(extensions)))
+        
+        self.files = [s[0] for s in self.samples]
+        self.imgs = self.samples
+
+
+
+    def _find_classes(self, directory):
+        """
+        Finds the class folders in a dataset.
+        Args:
+            dir (string): Root directory path.
+        Returns:
+            tuple: (classes, class_to_idx) where classes are relative to (dir), and class_to_idx is a dictionary.
+        Ensures:
+            No class is a subdirectory of another.
+        """
+        if sys.version_info >= (3, 5):
+            # Faster and available in Python 3.5 and above
+            classes = [d.name for d in os.scandir(directory) if d.is_dir()]
+        else:
+            classes = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+        classes.sort()
+        classes.append('.')
+        class_to_idx = {classes[i]: i for i in range(len(classes))}
+        return classes, class_to_idx
+
 
 class BinaryMultilabelImageFolder(ImageFolder):
     """BinaryMultilabelImageFolder extends the torchvision ImageFolder by taking
@@ -59,7 +142,7 @@ class BinaryMultilabelImageFolder(ImageFolder):
 
     
 
-class BinaryMultilabelCSVImageFolder(ImageFolder):
+class BinaryMultilabelCSVImageFolder(RobustImageFolder):
     """BinaryMultilabelCSVImageFolder extends the torchvision ImageFolder by taking
     a csv file (and optionally an image folder if the csv is not in the same location)
     and loads all images from the folder with class labels defined in the csv file. Expects
