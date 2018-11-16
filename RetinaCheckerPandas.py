@@ -44,7 +44,7 @@ class RetinaCheckerPandas(RetinaCheckerCSV.RetinaCheckerCSV):
 
         train_transform = transforms.Compose(transform_list)
 
-        self.train_dataset = PandasDataset.PandasDataset(source=self.csv_file, mode='csv'
+        self.train_dataset = PandasDataset.PandasDataset(source=self.csv_file, mode='csv',
                                                         root=self.config['files'].get('train path', './train'),
                                                         transform=train_transform, target_transform=None)
         
