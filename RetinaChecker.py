@@ -281,14 +281,16 @@ class RetinaChecker(object):
             self.train_loader = torch.utils.data.DataLoader(dataset=self.train_dataset,
                                                     batch_size=batch_size,
                                                     shuffle=False,
-                                                    sampler=train_sampler)
+                                                    sampler=train_sampler,
+                                                    num_workers=8)
 
         test_sampler = None
 
         self.test_loader = torch.utils.data.DataLoader(dataset=self.test_dataset,
                                                 batch_size=batch_size,
                                                 shuffle=False,
-                                                sampler=test_sampler)
+                                                sampler=test_sampler,
+                                                num_workers=8)
 
     def _process_config( self ):
         """Parses the config file stored in the config member and sets the
