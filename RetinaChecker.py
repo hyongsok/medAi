@@ -323,7 +323,8 @@ class RetinaChecker(object):
         self._process_config()
 
         # Device configuration
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        if self.device is None:
+            self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print('Using device', self.device)
 
         # Loading data sets based on configuration

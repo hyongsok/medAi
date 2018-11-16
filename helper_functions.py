@@ -84,9 +84,9 @@ def print_dataset_stats( dataset, loader ):
 
     classes = dataset.class_to_idx
     labels = np.zeros(len(classes))
-    for _, labels in loader:
-        lab, count = np.unique(labels, return_counts=True)
-        labels[lab] += count
+    for _, batch_labels in loader:
+        lab, count = np.unique(batch_labels, return_counts=True)
+        labels[lab.astype(np.int)] += count
     print('Samples:', labels.sum())
     for key, val in classes.items():
         print('{}: {} - {} samples ({:.1f}%)'.format(val, key, labels[int(val)], labels[int(val)]/labels.sum()*100))
