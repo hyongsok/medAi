@@ -32,7 +32,7 @@ def normalize_image( im, mask=True ):
     im[~mask] = im[mask].mean()
     return im
 
-def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=50, param2=30, minRadius=500, maxRadius=0 ):
+def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, param2=30, minRadius=500, maxRadius=0 ):
     '''Finds the inner and outer box around the retina using openCV
     HoughCircles. Returns x,y coordinates of the box center, radius
     d of the inner box and radius r of the outer box as x, y, r_in, r_out. 
@@ -43,6 +43,8 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=50, 
     All arguments after display are cv2.HoughCircles arguments
     '''
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+    minRadius=int(gray.shape[0]/3)
+    maxRadius=int(gray.shape[0]*1.5)
     # detect circles in the image
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
     # ensure at least some circles were found
@@ -74,9 +76,9 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=50, 
         return x, y, r_in, r_out
     else:
         warnings.warn('No circles found on image')
-        if minRadius > (0.4*min(im.shape[:2])):
+        if param1 > 40:
             print('Trying to set the minimum radius to 0.4 of shortest patch size. Wish me luck.')
-            return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=int(0.4*min(im.shape[:2])-1), maxRadius=maxRadius)
+            return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=40, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
 
         return None
 
@@ -94,8 +96,8 @@ def process_folder( source, target, inner = False ):
     tic = time.time()
     for i, f in enumerate(file_list):
         #print(os.path.join(source, f))
-        if os.path.exists(os.path.join(target, f)+'.cropped.png'):
-            print('skipping', os.path.join(target, f)+'.cropped.png')
+        if os.path.exists(os.path.join(target, f)):
+            print('skipping', os.path.join(target, f))
             continue
         try:
             im = imageio.imread(os.path.join(source, f))
@@ -111,7 +113,7 @@ def process_folder( source, target, inner = False ):
             with open('warn.log', 'a') as fout:
                 fout.write('{:%Y-%m-%d %H:%M}: {}\n'.format(datetime.datetime.now(), os.path.join(source, f)))
         try:
-            imageio.imwrite(os.path.join(target, f)+'.cropped.png', np.array(im))
+            imageio.imwrite(os.path.join(target, f), np.array(im))
         except ValueError as v:
             print('Could not write {}\nAdditional info:'.format(os.path.join(target, f)), v)
         print("{}: {}/{} - {} left".format(os.path.join(source, f), i+1, len(file_list), pretty_time_left(tic, i+1, len(file_list) )))
