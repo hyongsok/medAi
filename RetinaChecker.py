@@ -377,7 +377,7 @@ class RetinaChecker(object):
                 checkpoint = torch.load(self.config['input'].get('checkpoint'), map_location='cpu')
             self.start_epoch = checkpoint['epoch']
             self.epoch = self.start_epoch
-            self.model.load_state_dict(checkpoint['state_dict'])
+            self.model.load_state_dict(checkpoint['state_dict'], strict=False)
             self.optimizer.load_state_dict(checkpoint['optimizer'])
             print("=> loaded checkpoint '{}' (epoch {})"
                     .format(self.config['input'].get('checkpoint'), checkpoint['epoch']))
