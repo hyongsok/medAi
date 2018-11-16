@@ -48,7 +48,7 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, 
     # detect circles in the image
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
     # ensure at least some circles were found
-    print(len(circles), 'circles found')
+    
     if circles is not None:
         # convert the (x, y) coordinates and radius of the circles to integers
         circles = np.round(circles[0, :]).astype("int")
