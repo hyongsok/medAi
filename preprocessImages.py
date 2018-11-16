@@ -48,6 +48,7 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, 
     # detect circles in the image
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
     # ensure at least some circles were found
+    print(len(circles), 'circles found')
     if circles is not None:
         # convert the (x, y) coordinates and radius of the circles to integers
         circles = np.round(circles[0, :]).astype("int")
@@ -77,8 +78,10 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, 
     else:
         warnings.warn('No circles found on image')
         if param1 > 40:
-            print('Trying to set the minimum radius to 0.4 of shortest patch size. Wish me luck.')
+            print('Retry with param1=40.')
             return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=40, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
+        else:
+            print('no luck, skipping image')
 
         return None
 
@@ -95,7 +98,7 @@ def process_folder( source, target, inner = False ):
         pass
     tic = time.time()
     for i, f in enumerate(file_list):
-        #print(os.path.join(source, f))
+        print('Starting with', os.path.join(source, f))
         if os.path.exists(os.path.join(target, f)):
             print('skipping', os.path.join(target, f))
             continue
