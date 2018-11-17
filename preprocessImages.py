@@ -77,9 +77,13 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, 
         return x, y, r_in, r_out
     else:
         warnings.warn('No circles found on image')
-        if param1 > 40:
+        if param1 > 30:
             param1 -= 10
             print('Retry with param1=', param1)
+            return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
+        elif param2 > 40:
+            param2 -= 10
+            print('Retry with param2=', param2)
             return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
         else:
             print('no luck, skipping image')
