@@ -32,7 +32,7 @@ def normalize_image( im, mask=True ):
     im[~mask] = im[mask].mean()
     return im
 
-def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, param2=50, minRadius=500, maxRadius=0 ):
+def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=60, param2=50, minRadius=500, maxRadius=0, max_patch_size=800 ):
     '''Finds the inner and outer box around the retina using openCV
     HoughCircles. Returns x,y coordinates of the box center, radius
     d of the inner box and radius r of the outer box as x, y, r_in, r_out. 
@@ -43,6 +43,9 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, 
     All arguments after display are cv2.HoughCircles arguments
     '''
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+    scale_factor = max(gray.shape)/max_patch_size
+    shape = (int(gray.shape[0]/scale_factor), int(gray.shape[1]/scale_factor))
+    gray = cv2.resize(gray.T, shape).T
     minRadius=int(gray.shape[0]/3)
     maxRadius=int(gray.shape[0]*1.5)
     minDist=int(min(gray.shape)/5)
@@ -52,7 +55,7 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, 
     
     if circles is not None:
         # convert the (x, y) coordinates and radius of the circles to integers
-        circles = np.round(circles[0, :]).astype("int")
+        circles = np.round(circles[0, :]*scale_factor).astype("int")
         
         center_circle = 0
         if len(circles) > 1:
