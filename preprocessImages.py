@@ -32,7 +32,7 @@ def normalize_image( im, mask=True ):
     im[~mask] = im[mask].mean()
     return im
 
-def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, param2=30, minRadius=500, maxRadius=0 ):
+def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, param2=50, minRadius=500, maxRadius=0 ):
     '''Finds the inner and outer box around the retina using openCV
     HoughCircles. Returns x,y coordinates of the box center, radius
     d of the inner box and radius r of the outer box as x, y, r_in, r_out. 
@@ -45,6 +45,7 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, 
     gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
     minRadius=int(gray.shape[0]/3)
     maxRadius=int(gray.shape[0]*1.5)
+    minDist=int(min(gray.shape)/5)
     # detect circles in the image
     circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
     # ensure at least some circles were found
@@ -77,11 +78,11 @@ def find_retina_boxes( im, display = False, dp = 1.0, minDist = 500, param1=80, 
         return x, y, r_in, r_out
     else:
         warnings.warn('No circles found on image')
-        if param1 > 30:
+        if param1 > 40:
             param1 -= 10
             print('Retry with param1=', param1)
             return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
-        elif param2 > 40:
+        elif param2 > 20:
             param2 -= 10
             print('Retry with param2=', param2)
             return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
