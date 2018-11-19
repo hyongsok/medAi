@@ -100,7 +100,7 @@ class PandasDataset(torch.utils.data.Dataset):
         self.classes = classes
         self.class_to_idx = class_to_idx
         self.samples = samples
-        self.targets = samples.iloc[:].values
+        self.targets = samples.iloc[:].values.astype(np.float32)
         self.imgs = samples
         self.filenames = samples.index.values
 
@@ -130,7 +130,7 @@ class PandasDataset(torch.utils.data.Dataset):
         """
 
         sss = sklearn.model_selection.StratifiedShuffleSplit(n_splits=1, test_size=test_size, train_size=train_size, random_state=random_state)
-        train_index, test_index = next(iter(sss.split(self.samples.index.values, self.targets)))
+        train_index, test_index = next(iter(sss.split(self.filenames, self.targets)))
         train_set = PandasDataset(source=self.samples.iloc[train_index], root=self.root, mode='pandas', 
                                     loader=self.loader, extensions=self.extensions, transform=self.transform, 
                                     target_transform=self.target_transform)
@@ -180,7 +180,7 @@ class PandasDataset(torch.utils.data.Dataset):
         class_to_idx = dict(enumerate(classes))
         self.classes = classes
         self.class_to_idx = class_to_idx
-        self.targets = self.samples.iloc[:].values
+        self.targets = self.samples.iloc[:].values.astype(np.float32)
         self.filenames = self.samples.index.values
 
     def __getitem__(self, index):
