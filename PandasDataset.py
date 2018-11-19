@@ -181,7 +181,7 @@ class PandasDataset(torch.utils.data.Dataset):
                     self_index_prefix = os.path.relpath(self.root, prefix)
                     other_index_prefix = os.path.relpath(other.root, prefix)
                 self.samples.index = [self_index_prefix+idx for idx in self.samples.index]
-                other = other.copy(deep=True)
+                other = other.clone()
                 other.samples.index = [other_index_prefix+idx for idx in other.samples.index]
                 self.root = prefix
             else:
