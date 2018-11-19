@@ -18,7 +18,7 @@ def pil_loader(path):
 
 def make_dataset(directory, class_to_idx, extensions):
     images = []
-    dir = os.path.expanduser(directory)
+    directory = os.path.expanduser(directory)
     for target in sorted(class_to_idx.keys()):
         d = os.path.join(directory, target)
         if not os.path.isdir(d):
@@ -102,6 +102,7 @@ class PandasDataset(torch.utils.data.Dataset):
         self.samples = samples
         self.targets = samples.iloc[:].values
         self.imgs = samples
+        self.filenames = samples.index.values
 
         self.transform = transform
         self.target_transform = target_transform
@@ -158,6 +159,30 @@ class PandasDataset(torch.utils.data.Dataset):
         class_to_idx = {classes[i]: i for i in range(len(classes))}
         return classes, class_to_idx
 
+    def clone(self):
+        data = PandasDataset(source=self.samples.copy(deep=True), root=self.root, mode='pandas', 
+                            loader=self.loader, extensions=self.extensions, transform=self.transform, 
+                            target_transform=self.target_transform)
+        return data
+
+    def join(self, other):
+        if self.transform != other.transform:
+            raise ValueError('transform does not match')
+        elif self.target_transform != other.target_transform:
+            raise ValueError('target_transform does not match')
+        elif self.root != other.root:
+            raise ValueError('root does not match')
+        self.samples.append(other.samples)
+        self.refresh()
+
+    def refresh(self):
+        classes = self.samples.columns
+        class_to_idx = dict(enumerate(classes))
+        self.classes = classes
+        self.class_to_idx = class_to_idx
+        self.targets = self.samples.iloc[:].values
+        self.filenames = self.samples.index.values
+
     def __getitem__(self, index):
         """
         Args:
@@ -166,15 +191,15 @@ class PandasDataset(torch.utils.data.Dataset):
             tuple: (sample, target) where target is class_index of the target class.
         """
         if isinstance(index, int):
-            path = self.samples.index[index]
-            target = self.samples.iloc[index].values
+            path = self.filenames[index]
+            target = self.targets[index]
         elif isinstance(index, str):
-            if not index in self.samples:
-                raise IndexError('Given index', index, 'not in sample index', self.samples.index)
+            if not index in self.filenames:
+                raise IndexError('Given index', index, 'not in sample index', self.filenames)
             path = index
-            target = self.samples[index].values
+            target = self.targets[index]
         else:
-            raise IndexError('Given index', index, 'not an integer nor in sample index', self.samples.index)
+            raise IndexError('Given index', index, 'not an integer nor in sample index', self.filenames)
 
         sample = self.loader(path)
         if self.transform is not None:
@@ -196,3 +221,18 @@ class PandasDataset(torch.utils.data.Dataset):
         tmp = '    Target Transforms (if any): '
         fmt_str += '{0}{1}'.format(tmp, self.target_transform.__repr__().replace('\n', '\n' + ' ' * len(tmp)))
         return fmt_str
+
+    def __add__(self, other):
+        if self.transform != other.transform:
+            raise ValueError('transform does not match')
+        elif self.target_transform != other.target_transform:
+            raise ValueError('target_transform does not match')
+        elif self.root != other.root:
+            raise ValueError('root does not match')
+        data = self.samples.copy(deep=True)
+        data = data.append(other.samples)
+
+        dataset = PandasDataset(source=data, root=self.root, mode='pandas', 
+                            loader=self.loader, extensions=self.extensions, transform=self.transform, 
+                            target_transform=self.target_transform)
+        return dataset
