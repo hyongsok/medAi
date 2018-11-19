@@ -1,5 +1,6 @@
 import os
 import sys
+import pathlib
 import pandas as pd
 import torch
 import torch.utils.data
@@ -165,13 +166,26 @@ class PandasDataset(torch.utils.data.Dataset):
                             target_transform=self.target_transform)
         return data
 
-    def join(self, other):
+    def join(self, other, align_root=False):
         if self.transform != other.transform:
             raise ValueError('transform does not match')
         elif self.target_transform != other.target_transform:
             raise ValueError('target_transform does not match')
         elif self.root != other.root:
-            raise ValueError('root does not match')
+            if align_root:
+                prefix = os.path.commonprefix([self.root, other.root])
+                if prefix == '': #if there is no common prefix
+                    self_index_prefix = self.root
+                    other_index_prefix = other.root
+                else:
+                    self_index_prefix = os.path.relpath(self.root, prefix)
+                    other_index_prefix = os.path.relpath(other.root, prefix)
+                self.samples.index = [self_index_prefix+idx for idx in self.samples.index]
+                other = other.copy(deep=True)
+                other.samples.index = [other_index_prefix+idx for idx in other.samples.index]
+                self.root = prefix
+            else:
+                raise ValueError('root does not match')
         self.samples.append(other.samples)
         self.refresh()
 
