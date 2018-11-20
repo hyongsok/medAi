@@ -31,7 +31,7 @@ def main():
     rc.create_dataloader(config['files'].getint('num workers', 0))
 
     # Initialize the model
-    rc.initialize_model(aux_logits=False)
+    rc.initialize_model(aux_logits=True)
     rc.initialize_criterion()
     rc.initialize_optimizer()
 

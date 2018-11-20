@@ -310,6 +310,8 @@ class RetinaCheckerPandas():
 
             # Forward pass
             outputs = self.model(images)
+            if isinstance(outputs, tuple):
+                outputs = outputs[0]
             loss = self.criterion(outputs, labels)
 
             # store results & evaluate accuracy
