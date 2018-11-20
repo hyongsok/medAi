@@ -23,12 +23,13 @@ def get_config():
     }
 
     config['files'] = {
-    'label file': '',
-    'train path': './train',
-    'test path': './test',
-    'show patch stats': False,
+    'train file': 'label.csv',
+    'train root': './train',
+    'test file': '',
+    'test root': '',
     'image size': 224,
-    'samples': 6400
+    'samples': 6400,
+    'num workers': 8
     }
 
     config['transform'] = {

@@ -262,7 +262,7 @@ class RetinaChecker(object):
         self.classes = self.test_dataset.class_to_idx
         self.num_classes = len(self.classes)
 
-    def _create_dataloader( self ):
+    def _create_dataloader( self, num_workers=8 ):
         """Generates the dataloader (and their respective samplers) for
         training and test data from the training and test data sets.
         Sampler for training data is an unbiased sampler for all classes
@@ -282,7 +282,7 @@ class RetinaChecker(object):
                                                     batch_size=batch_size,
                                                     shuffle=False,
                                                     sampler=train_sampler,
-                                                    num_workers=8)
+                                                    num_workers=num_workers)
 
         test_sampler = None
 
@@ -290,7 +290,7 @@ class RetinaChecker(object):
                                                 batch_size=batch_size,
                                                 shuffle=False,
                                                 sampler=test_sampler,
-                                                num_workers=8)
+                                                num_workers=num_workers)
 
     def _process_config( self ):
         """Parses the config file stored in the config member and sets the

@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
@@ -57,7 +58,24 @@ def has_file_allowed_extension(filename, extensions):
     filename_lower = filename.lower()
     return any(filename_lower.endswith(ext) for ext in extensions)
 
-
+def find_classes(directory):
+    """
+    Finds the class folders in a dataset.
+    Args:
+        directory (string): Root directory path.
+    Returns:
+        tuple: (classes, class_to_idx) where classes are relative to (directiry), and class_to_idx is a dictionary.
+    Ensures:
+        No class is a subdirectory of another.
+    """
+    if sys.version_info >= (3, 5):
+        # Faster and available in Python 3.5 and above
+        classes = [d.name for d in os.scandir(directory) if d.is_dir()]
+    else:
+        classes = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
+    classes.sort()
+    class_to_idx = {classes[i]: i for i in range(len(classes))}
+    return classes, class_to_idx
 
 class PandasDataset(torch.utils.data.Dataset):
     """[summary]
@@ -79,12 +97,12 @@ class PandasDataset(torch.utils.data.Dataset):
         if mode == 'csv':
             samples = pd.read_csv(source, index_col=0)
             if not root is None:
-                samples.index = [root+ind for ind in samples.index]
+                samples.index = [str(Path(root) / Path(ind)) for ind in samples.index]
             classes = samples.columns
             class_to_idx = dict(enumerate(classes))
             self.csv_file = source
         elif mode == 'ImageFolder':
-            classes, class_to_idx = self._find_classes(root)
+            classes, class_to_idx = find_classes(root)
             samples = make_dataset(root, class_to_idx, extensions)
         elif mode == 'pandas':
             samples = source
@@ -141,25 +159,6 @@ class PandasDataset(torch.utils.data.Dataset):
         return train_set, test_set
 
 
-    def _find_classes(self, directory):
-        """
-        Finds the class folders in a dataset.
-        Args:
-            dir (string): Root directory path.
-        Returns:
-            tuple: (classes, class_to_idx) where classes are relative to (dir), and class_to_idx is a dictionary.
-        Ensures:
-            No class is a subdirectory of another.
-        """
-        if sys.version_info >= (3, 5):
-            # Faster and available in Python 3.5 and above
-            classes = [d.name for d in os.scandir(directory) if d.is_dir()]
-        else:
-            classes = [d for d in os.listdir(directory) if os.path.isdir(os.path.join(directory, d))]
-        classes.sort()
-        class_to_idx = {classes[i]: i for i in range(len(classes))}
-        return classes, class_to_idx
-
     def clone(self):
         data = PandasDataset(source=self.samples.copy(deep=True), root=self.root, mode='pandas', 
                             loader=self.loader, extensions=self.extensions, transform=self.transform, 
@@ -212,6 +211,9 @@ class PandasDataset(torch.utils.data.Dataset):
                 raise IndexError('Given index', index, 'not in sample index', self.filenames)
             path = index
             target = self.targets[index]
+        elif isinstance(index, torch.Tensor):
+            path = self.filenames[index.item()]
+            target = self.targets[index.item()]
         else:
             raise IndexError('Given index', index, 'not an integer nor in sample index', self.filenames)
 
