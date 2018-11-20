@@ -84,7 +84,6 @@ def main():
         sensitivity_2class = confusion_2class[1,1]/confusion_2class[:,1].sum()
         specificity_2class = confusion_2class[0,0]/confusion_2class[:,0].sum()
         print('Accuracy: {:.1f}%'.format(accuracy_2class*100))
-        print(confusion_2class)
         print('Sensitivity: {:.1f}%'.format(sensitivity_2class*100))
         print('Specificity: {:.1f}%'.format(specificity_2class*100))
 
