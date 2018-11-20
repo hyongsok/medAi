@@ -2,6 +2,7 @@ import configparser
 import os
 import time
 import warnings
+import json
 
 import numpy as np
 import torch
@@ -47,7 +48,8 @@ class RetinaCheckerPandas():
         self.test_dataset = None
         self.num_classes = None
         self.classes = None
-        self.normalize_data = True
+        self.normalize_mean = None
+        self.normalize_std = None
 
         self.train_loader = None
         self.test_loader = None
@@ -70,6 +72,10 @@ class RetinaCheckerPandas():
             desc += 'Optimizer: ' + self.optimizer_name + '\n'
             desc += 'Criterion: ' + self.criterion_name + '\n'
             desc += 'Epochs: ' + self.epoch + '\n'
+            desc += 'Training root: ' + self.train_root + '\n'
+            desc += 'Training file: ' + self.train_file + '\n'
+            desc += 'Test root: ' + self.test_root + '\n'
+            desc += 'Test file: ' + self.test_file + '\n'
         else:
             desc += 'not initialized'
         return desc
@@ -88,8 +94,14 @@ class RetinaCheckerPandas():
         self.criterion_name = self.config['network'].get('criterion', 'CrossEntropy')
         self.train_root = self.config['files'].get('train root', './train')
         self.train_file = self.config['files'].get('train file', 'labels.csv')
-        self.test_root = self.config['files'].get('test root', '')
-        self.test_file = self.config['files'].get('test file', '.')
+        self.test_root = self.config['files'].get('test root', None)
+        self.test_file = self.config['files'].get('test file', None)
+        normalize_mean = self.config['hyperparameter'].get('normalize mean', None)
+        if not normalize_mean is None:
+            self.normalize_mean = np.array(json.loads(normalize_mean), dtype=np.float32)
+        normalize_std = self.config['hyperparameter'].get('normalize std', None)
+        if not normalize_std is None:
+            self.normalize_std = np.array(json.loads(normalize_std), dtype=np.float32)
 
         self.model_pretrained = self.config['network'].getboolean('pretrained', False)
         if self.device is None:

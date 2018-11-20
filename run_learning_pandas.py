@@ -22,7 +22,6 @@ def main():
     rc.initialize(config)
 
     rc.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print('Using device', rc.device)
 
     # Loading data sets based on configuration
     rc.load_datasets()
@@ -31,7 +30,7 @@ def main():
     rc.create_dataloader(config['files'].getint('num workers', 0))
 
     # Initialize the model
-    rc.initialize_model(aux_logits=True)
+    rc.initialize_model()
     rc.initialize_criterion()
     rc.initialize_optimizer()
 

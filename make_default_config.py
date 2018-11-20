@@ -19,7 +19,9 @@ def get_config():
     config['hyperparameter'] = {
     'epochs': 50,
     'batch size': 64,
-    'learning rate': 0.001
+    'learning rate': 0.001,
+    'normalize mean': '[0.1,0.2,0.3]',
+    'normalize std': '[0.1,0.2,0.3]'
     }
 
     config['files'] = {
