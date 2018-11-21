@@ -15,7 +15,7 @@ def crop_image( im, inner_box=False ):
     boxes = find_retina_boxes( im )
     if boxes is None:
         return None
-    x, y, r_in, r_out = boxes
+    x, y, r_in, r_out, _ = boxes
     img_y, img_x, _ = im.shape
 
     if inner_box:
@@ -36,7 +36,7 @@ def normalize_image( im, mask=True ):
     im[~mask] = im[mask].mean()
     return im
 
-def find_retina_boxes( im, display=False, dp=1.0, minDist=500, param1=60, param2=50, minRadius=0.48, maxRadius=0.65, max_patch_size=800, max_dist_center=0.05 ):
+def find_retina_boxes( im, display=False, dp=1.0, param1=60, param2=50, minimum_circle_distance=0.2, minimum_radius=0.45, maximum_radius=0.65, max_patch_size=800, max_distance_center=0.05 ):
     '''Finds the inner and outer box around the retina using openCV
     HoughCircles. Returns x,y coordinates of the box center, radius
     d of the inner box and radius r of the outer box as x, y, r_in, r_out. 
@@ -50,14 +50,18 @@ def find_retina_boxes( im, display=False, dp=1.0, minDist=500, param1=60, param2
     scale_factor = max(gray.shape)/max_patch_size
     shape = (int(gray.shape[0]/scale_factor), int(gray.shape[1]/scale_factor))
     gray = cv2.resize(gray.T, shape).T
-    minRadius = int(min(gray.shape)*minRadius)
-    maxRadius = int(min(gray.shape)*maxRadius)
-    minDist = int(min(gray.shape)/5)
-    max_distance_center = int(min(gray.shape)*0.05)
+    output = None
+
+    minRadius = int(min(gray.shape)*minimum_radius)
+    maxRadius = int(min(gray.shape)*maximum_radius)
+    minDist = int(min(gray.shape)*minimum_circle_distance)
+    maxDist = int(min(gray.shape)*max_distance_center)
+    print(gray.shape, minRadius, maxRadius, minDist, max_distance_center)
     # detect circles in the image
     try:
         circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
-    except:
+    except Exception as e:
+        print('Something bad happened:', e)
         return None
     # ensure at least some circles were found
     
@@ -67,16 +71,17 @@ def find_retina_boxes( im, display=False, dp=1.0, minDist=500, param1=60, param2
         
         center_circle = 0
         if len(circles) > 1:
-            cy, cx = np.array(im.shape[:2])/2
-            dist = (circles[:,0]-cx)**2 + (circles[:,1]-cy)**2
+            cy, cx = np.array(gray.shape)/2
+            dist = np.sqrt((circles[:,0]-cx)**2 + (circles[:,1]-cy)**2)
             center_circle = np.argmin(dist)
-            if dist[center_circle] > max_distance_center:
+            if dist[center_circle] > maxDist:
                 center_circle = None
+                print(dist[center_circle], maxDist)
         
         if display:
             # loop over the (x, y) coordinates and radius of the circles
             output = im.copy()
-            circles = scale_factor*circles
+            circles = np.round(scale_factor*circles).astype(int)
             for (x, y, r) in circles:
                 # draw the circle in the output image, then draw a rectangle
                 # corresponding to the center of the circle
@@ -86,23 +91,26 @@ def find_retina_boxes( im, display=False, dp=1.0, minDist=500, param1=60, param2
                 x, y, r = circles[center_circle,:]
                 cv2.circle(output, (x, y), r, (0, 255, 255), 4)
                 cv2.rectangle(output, (x - 5, y - 5), (x + 5, y + 5), (128, 128, 255), -1)
-            return output
         
         if center_circle is not None:
             x, y, r_out = np.round(scale_factor*circles[center_circle,:]).astype(int)
             r_in = int(np.sqrt((r_out**2)/2))
-            return x, y, r_in, r_out
+            return x, y, r_in, r_out, output
 
     if circles is None or center_circle is None:
-        warnings.warn('No circles found on image')
+        #warnings.warn('No circles found on image')
         if param1 > 40:
             param1 -= 10
             print('Retry with param1=', param1)
-            return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
+            return find_retina_boxes( im, display, dp=dp, param1=param1, param2=param2, minimum_circle_distance=minimum_circle_distance, 
+                                        minimum_radius=minimum_radius, maximum_radius=maximum_radius, max_patch_size=max_patch_size, 
+                                        max_distance_center=max_distance_center )
         elif param2 > 20:
             param2 -= 10
             print('Retry with param2=', param2)
-            return find_retina_boxes( im, display, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
+            return find_retina_boxes( im, display, dp=dp, param1=param1, param2=param2, minimum_circle_distance=minimum_circle_distance, 
+                                        minimum_radius=minimum_radius, maximum_radius=maximum_radius, max_patch_size=max_patch_size, 
+                                        max_distance_center=max_distance_center )
         else:
             print('no luck, skipping image')
 
