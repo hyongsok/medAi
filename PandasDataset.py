@@ -196,6 +196,12 @@ class PandasDataset(torch.utils.data.Dataset):
         self.targets = self.samples.iloc[:].values.astype(np.float32)
         self.filenames = self.samples.index.values
 
+    def subset(self, indices):
+        data = PandasDataset(source=self.samples.iloc[indices].copy(deep=True), root=self.root, mode='pandas', 
+                            loader=self.loader, extensions=self.extensions, transform=self.transform, 
+                            target_transform=self.target_transform)
+        return data
+
     def __getitem__(self, index):
         """
         Args:

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from time_left import pretty_time_left, pretty_print_time
 from RetinaCheckerPandas import RetinaCheckerPandas
-from helper_functions import print_dataset_stats, initialize_meters, save_performance
+from helper_functions import initialize_meters, save_performance
 from make_default_config import get_config
 
 def main():
