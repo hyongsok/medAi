@@ -96,7 +96,9 @@ class PandasDataset(torch.utils.data.Dataset):
         if mode == 'csv':
             samples = pd.read_csv(source, index_col=0)
             if not root is None:
+                name = samples.index.name
                 samples.index = [str(Path(root) / Path(ind)) for ind in samples.index]
+                samples.index.name = name
             classes = samples.columns
             class_to_idx = dict(enumerate(classes))
             self.csv_file = source
@@ -125,7 +127,7 @@ class PandasDataset(torch.utils.data.Dataset):
         self.transform = transform
         self.target_transform = target_transform
 
-    def split(self, test_size=0.1, train_size=None, random_state=None):
+    def split(self, test_size=0.1, train_size=None, random_state=None, return_indices=None):
         """Splitting the Dataset into test and training set. Uses scikit StratifiedShuffleSplit
         to keep the distribution of classes equal in test and training. Parameters are identical
         (as of scikit 0.20).
@@ -155,6 +157,8 @@ class PandasDataset(torch.utils.data.Dataset):
         test_set = PandasDataset(source=self.samples.iloc[test_index], root=self.root, mode='pandas', 
                                     loader=self.loader, extensions=self.extensions, transform=self.transform, 
                                     target_transform=self.target_transform)
+        if return_indices is not None and isinstance(return_indices, list):
+            return_indices.append((train_index, test_index))
         return train_set, test_set
 
 
@@ -201,9 +205,8 @@ class PandasDataset(torch.utils.data.Dataset):
                             target_transform=self.target_transform)
         return data
 
-    def getLoader(self, batch_size=1, shuffle=False, num_workers=0):
-        loader = torch.utils.data.DataLoader(self, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-        return loader
+    def dump(self, filename):
+        self.samples.to_csv(filename, sep=',', index_label=self.samples.index.name)
 
     def __getitem__(self, index):
         """

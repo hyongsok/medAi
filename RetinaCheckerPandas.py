@@ -46,6 +46,7 @@ class RetinaCheckerPandas():
 
         self.train_dataset = None
         self.test_dataset = None
+        self.split_indices = None
         self.num_classes = None
         self.classes = None
         self.normalize_mean = None
@@ -157,11 +158,14 @@ class RetinaCheckerPandas():
             test_transform = self._get_test_transform(normalize_factors)
             train_transform = self._get_training_transform(normalize_factors)
             
-            if not os.path.isfile(self.test_file): 
+            if self.test_file is None or not os.path.isfile(self.test_file): 
                 dataset = PandasDataset.PandasDataset(source=self.train_file, mode='csv', root=self.train_root)
-                self.train_dataset, self.test_dataset = dataset.split(test_size=test_size)
+                self.split_indices = []
+                self.train_dataset, self.test_dataset = dataset.split(test_size=test_size, return_indices=self.split_indices)
                 self.train_dataset.transform = train_transform
                 self.test_dataset.transform = test_transform
+                self.train_dataset.dump('train.csv')
+                self.test_dataset.dump('test.csv')
             else:
                 self.train_dataset = PandasDataset.PandasDataset(source=self.train_file, mode='csv',
                                                             root=self.train_root,
@@ -215,8 +219,7 @@ class RetinaCheckerPandas():
             test_confusion {torch.Array} -- tensor of confusion matrices
             filename {string} -- target filename
         """
-
-        torch.save({
+        save_dict = {
             'epoch': self.epoch,
             'state_dict': self.model.state_dict(),
             'optimizer' : self.optimizer.state_dict(),
@@ -225,8 +228,19 @@ class RetinaCheckerPandas():
             'test_loss': test_loss,
             'test_accuracy': test_accuracy,
             'test_confusion': test_confusion,
-            'classes': self.classes,
-        }, filename)
+            'classes': self.classes
+        }
+        if self.train_file is not None:
+            save_dict['train_file'] = self.train_file
+            save_dict['train_root'] = self.train_root
+        if self.test_file is not None:
+            save_dict['test_file'] = self.test_file
+            save_dict['test_root'] = self.test_root 
+        if self.split_indices is not None:
+            save_dict['train_indices'] = self.split_indices[0][0]
+            save_dict['test_indices'] = self.split_indices[0][1] 
+        
+        torch.save(save_dict, filename)
 
     def load_state( self ):
         """Load the state stored in the config into the given model and optimizer.
