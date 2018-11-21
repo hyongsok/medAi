@@ -56,7 +56,7 @@ def find_retina_boxes( im, display=False, dp=1.0, param1=60, param2=50, minimum_
     maxRadius = int(min(gray.shape)*maximum_radius)
     minDist = int(min(gray.shape)*minimum_circle_distance)
     maxDist = int(min(gray.shape)*max_distance_center)
-    print(gray.shape, minRadius, maxRadius, minDist, max_distance_center)
+    #print(gray.shape, minRadius, maxRadius, minDist, max_distance_center)
     # detect circles in the image
     try:
         circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
@@ -76,7 +76,7 @@ def find_retina_boxes( im, display=False, dp=1.0, param1=60, param2=50, minimum_
             center_circle = np.argmin(dist)
             if dist[center_circle] > maxDist:
                 center_circle = None
-                print(dist[center_circle], maxDist)
+                #print(dist[center_circle], maxDist)
         
         if display:
             # loop over the (x, y) coordinates and radius of the circles
