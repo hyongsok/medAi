@@ -36,7 +36,7 @@ def normalize_image( im, mask=True ):
     im[~mask] = im[mask].mean()
     return im
 
-def find_retina_boxes( im, display=False, dp=1.0, param1=60, param2=50, minimum_circle_distance=0.2, minimum_radius=0.45, maximum_radius=0.65, max_patch_size=800, max_distance_center=0.05 ):
+def find_retina_boxes( im, display=False, dp=1.0, param1=60, param2=50, minimum_circle_distance=0.2, minimum_radius=0.4, maximum_radius=0.65, max_patch_size=800, max_distance_center=0.05 ):
     '''Finds the inner and outer box around the retina using openCV
     HoughCircles. Returns x,y coordinates of the box center, radius
     d of the inner box and radius r of the outer box as x, y, r_in, r_out. 
