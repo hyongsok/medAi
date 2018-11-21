@@ -8,7 +8,6 @@ import torch.utils.data
 from PIL import Image
 import sklearn.model_selection
 
-
 # Functions partially copied from torchvision
 
 IMG_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.ppm', '.bmp', '.pgm', '.tif']
@@ -201,6 +200,10 @@ class PandasDataset(torch.utils.data.Dataset):
                             loader=self.loader, extensions=self.extensions, transform=self.transform, 
                             target_transform=self.target_transform)
         return data
+
+    def getLoader(self, batch_size=1, shuffle=False, num_workers=0):
+        loader = torch.utils.data.DataLoader(self, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+        return loader
 
     def __getitem__(self, index):
         """
