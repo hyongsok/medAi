@@ -24,7 +24,7 @@ def main():
     rc.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # Loading data sets based on configuration
-    rc.load_datasets()
+    rc.load_datasets(normalize_factors=rc.normalize_factors)
 
     # Initializing sampler and data (=patch) loader
     rc.create_dataloader(config['files'].getint('num workers', 0))

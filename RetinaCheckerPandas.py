@@ -51,6 +51,7 @@ class RetinaCheckerPandas():
         self.classes = None
         self.normalize_mean = None
         self.normalize_std = None
+        self.normalize_factors = None
 
         self.train_loader = None
         self.test_loader = None
@@ -98,11 +99,14 @@ class RetinaCheckerPandas():
         self.test_root = self.config['files'].get('test root', None)
         self.test_file = self.config['files'].get('test file', None)
         normalize_mean = self.config['hyperparameter'].get('normalize mean', None)
-        if not normalize_mean is None:
+        if normalize_mean is not None:
             self.normalize_mean = np.array(json.loads(normalize_mean), dtype=np.float32)
         normalize_std = self.config['hyperparameter'].get('normalize std', None)
-        if not normalize_std is None:
+        if normalize_std is not None:
             self.normalize_std = np.array(json.loads(normalize_std), dtype=np.float32)
+
+        if normalize_mean is not None and normalize_std is not None:
+            self.normalize_factors = [self.normalize_mean, self.normalize_std]
 
         self.model_pretrained = self.config['network'].getboolean('pretrained', False)
         if self.device is None:
@@ -239,7 +243,7 @@ class RetinaCheckerPandas():
         if self.split_indices is not None:
             save_dict['train_indices'] = self.split_indices[0][0]
             save_dict['test_indices'] = self.split_indices[0][1] 
-        
+            
         torch.save(save_dict, filename)
 
     def load_state( self ):
