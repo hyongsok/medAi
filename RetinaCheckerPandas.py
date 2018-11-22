@@ -100,10 +100,10 @@ class RetinaCheckerPandas():
         self.test_file = self.config['files'].get('test file', None)
         normalize_mean = self.config['hyperparameter'].get('normalize mean', None)
         if normalize_mean is not None:
-            self.normalize_mean = np.array(json.loads(normalize_mean), dtype=np.float32)
+            self.normalize_mean = json.loads(normalize_mean)
         normalize_std = self.config['hyperparameter'].get('normalize std', None)
         if normalize_std is not None:
-            self.normalize_std = np.array(json.loads(normalize_std), dtype=np.float32)
+            self.normalize_std = json.loads(normalize_std)
 
         if normalize_mean is not None and normalize_std is not None:
             self.normalize_factors = [self.normalize_mean, self.normalize_std]
