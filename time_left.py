@@ -1,5 +1,20 @@
 import time
 
+class TimeLeft(object):
+
+    def __init__(self, n):
+        self.max_iterations = n
+        self.start_time = time.time()
+
+    def reset(self):
+        self.start_time = time.time()
+    
+    def time_left(self, ii):
+        return time_left(self.start_time, ii, self.max_iterations)
+    
+    def pretty_time_left(self, ii):
+        return pretty_time_left(self.start_time, ii, self.max_iterations)
+
 def pretty_time_left( start_time, current_iteration, max_iterations ):
     return pretty_print_time( time_left( start_time, current_iteration, max_iterations ) )
 
