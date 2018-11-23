@@ -17,13 +17,13 @@ def main():
     else:
         config = get_config()
 
+    # create the checker class and initialize internal variables
     rc = RetinaCheckerPandas()
-    
     rc.initialize(config)
 
     rc.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # Loading data sets based on configuration
+    # Loading data sets based on configuration and enable normaization
     rc.load_datasets(normalize_factors=rc.normalize_factors)
 
     # Initializing sampler and data (=patch) loader

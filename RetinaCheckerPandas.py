@@ -30,11 +30,11 @@ class RetinaCheckerPandas():
         self.config = None
 
         self.model = None
-        self.model_name = 'resnet18'
+        self.model_name = 'inception_v3'
         self.optimizer = None
         self.optimizer_name = 'Adam'
         self.criterion = None
-        self.criterion_name = 'CrossEntropy'
+        self.criterion_name = 'BCEWithLogitsLoss'
 
         self.model_pretrained = False
         self.model_kwargs = {}
@@ -73,11 +73,18 @@ class RetinaCheckerPandas():
                 desc += '\n'
             desc += 'Optimizer: ' + self.optimizer_name + '\n'
             desc += 'Criterion: ' + self.criterion_name + '\n'
-            desc += 'Epochs: ' + self.epoch + '\n'
-            desc += 'Training root: ' + self.train_root + '\n'
-            desc += 'Training file: ' + self.train_file + '\n'
-            desc += 'Test root: ' + self.test_root + '\n'
-            desc += 'Test file: ' + self.test_file + '\n'
+            desc += 'Epoch: ' + str(self.epoch) + ' started at ' + str(self.start_epoch) + '\n'
+            desc += 'Training root: ' + str(self.train_root) + '\n'
+            desc += 'Training file: ' + str(self.train_file) + '\n'
+            if self.train_dataset is not None:
+                desc += str(self.train_dataset)
+            desc += 'Test root: ' + str(self.test_root) + '\n'
+            desc += 'Test file: ' + str(self.test_file) + '\n'
+            if self.test_dataset is not None:
+                desc += str(self.test_dataset)
+            desc += 'Classes:' + str(self.classes) + '\n'
+            
+
         else:
             desc += 'not initialized'
         return desc
@@ -355,12 +362,12 @@ class RetinaCheckerPandas():
             loss.backward()
             self.optimizer.step()
 
-            current_time = time.time()
-            print('Epoch [{}], Step [{}/{}], Loss: {:.4f},  Samples: {}, Correct: {} ({:.1f}%),  time in epoch {}, epoch remaining {}'
-                .format(self.epoch + 1, i + 1, len(self.train_loader), loss.item(), labels.size(0), num_correct, 
-                    num_correct/labels.size(0)*100,
-                    pretty_print_time(current_time-start_time_epoch), 
-                    pretty_time_left(start_time_epoch, i+1, len(self.train_loader))))
+            #current_time = time.time()
+            #print('Epoch [{}], Step [{}/{}], Loss: {:.4f},  Samples: {}, Correct: {} ({:.1f}%),  time in epoch {}, epoch remaining {}'
+            #    .format(self.epoch + 1, i + 1, len(self.train_loader), loss.item(), labels.size(0), num_correct, 
+            #        num_correct/labels.size(0)*100,
+            #        pretty_print_time(current_time-start_time_epoch), 
+            #        pretty_time_left(start_time_epoch, i+1, len(self.train_loader))))
         print('Epoch learning completed. Training accuracy {:.1f}%'.format(accuracy.avg*100))
 
         self.epoch += 1
@@ -394,7 +401,6 @@ class RetinaCheckerPandas():
             confusion = torch.zeros((2, 2), dtype=torch.float)
 
             for images, labels in test_loader:
-                print(np.unique(labels, return_counts=True))
                 images = images.to(self.device)
                 labels = labels.to(self.device)
 
