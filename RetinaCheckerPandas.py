@@ -154,6 +154,7 @@ class RetinaCheckerPandas():
         self.model = model_loader( pretrained=self.model_pretrained, **kwargs)
         num_ftrs = self.model.fc.in_features
         self.model.fc = nn.Linear(num_ftrs, self.num_classes)
+        self.model.AuxLogits.fc = nn.Linear(num_ftrs, self.num_classes)
         self.model = self.model.to(self.device)
 
     def load_datasets( self, test_size=0.1 ):
@@ -395,10 +396,13 @@ class RetinaCheckerPandas():
             labels = labels.to(self.device)
 
             # Forward pass
+            # inception returns 2 outputs, the regular output and the aux logits output. We need to calculate 
+            # the loss on both
             outputs = self.model(images)
             if isinstance(outputs, tuple):
-                outputs = outputs[0]
-            loss = self.criterion(outputs, labels)
+                loss = sum((self.criterion(o, labels) for o in outputs))
+            else:
+                loss = self.criterion(outputs, labels)
 
             # store results & evaluate accuracy
             losses.update(loss.item(), images.size(0))
