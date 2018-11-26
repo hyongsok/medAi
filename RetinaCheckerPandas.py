@@ -77,12 +77,12 @@ class RetinaCheckerPandas():
             desc += 'Training root: ' + str(self.train_root) + '\n'
             desc += 'Training file: ' + str(self.train_file) + '\n'
             if self.train_dataset is not None:
-                desc += str(self.train_dataset)
+                desc += str(self.train_dataset) + '\n'
             desc += 'Test root: ' + str(self.test_root) + '\n'
             desc += 'Test file: ' + str(self.test_file) + '\n'
             if self.test_dataset is not None:
-                desc += str(self.test_dataset)
-            desc += 'Classes:' + str(self.classes) + '\n'
+                desc += str(self.test_dataset) + '\n'
+            desc += 'Classes: ' + str(self.classes) + '\n'
             
 
         else:
@@ -156,20 +156,31 @@ class RetinaCheckerPandas():
         self.model.fc = nn.Linear(num_ftrs, self.num_classes)
         self.model = self.model.to(self.device)
 
-    def load_datasets( self, normalize_factors=None, test_size=0.1 ):
+    def load_datasets( self, test_size=0.1 ):
         '''Loads the data sets from the path given in the config file
         '''
 
         if self.config['input'].getboolean('evaluation only', False):
-            test_transform = self._get_test_transform(normalize_factors)
-            self.test_dataset = PandasDataset.PandasDataset(source=self.test_file, mode='csv',
-                                            root=self.test_root,
-                                            transform=test_transform, target_transform=None)
+            test_transform = self._get_test_transform(self.normalize_factors)
+            if self.split_indices is not None:
+                dataset = PandasDataset.PandasDataset(source=self.test_file, mode='csv', root=self.test_root)
+                self.test_dataset = dataset.subset(self.split_indices[0][1])
+                self.test_dataset.transform = test_transform
+            else:
+                self.test_dataset = PandasDataset.PandasDataset(source=self.test_file, mode='csv',
+                                                root=self.test_root,
+                                                transform=test_transform, target_transform=None)
         else:
-            test_transform = self._get_test_transform(normalize_factors)
-            train_transform = self._get_training_transform(normalize_factors)
+            test_transform = self._get_test_transform(self.normalize_factors)
+            train_transform = self._get_training_transform(self.normalize_factors)
             
-            if self.test_file is None or not os.path.isfile(self.test_file): 
+            if self.split_indices is not None:
+                dataset = PandasDataset.PandasDataset(source=self.train_file, mode='csv', root=self.train_root)
+                self.train_dataset = dataset.subset(self.split_indices[0][0])
+                self.test_dataset = dataset.subset(self.split_indices[0][1])
+                self.train_dataset.transform = train_transform
+                self.test_dataset.transform = test_transform
+            elif self.test_file is None or not os.path.isfile(self.test_file): 
                 dataset = PandasDataset.PandasDataset(source=self.train_file, mode='csv', root=self.train_root)
                 self.split_indices = []
                 self.train_dataset, self.test_dataset = dataset.split(test_size=test_size, return_indices=self.split_indices)
@@ -272,6 +283,45 @@ class RetinaCheckerPandas():
         except OSError as e:
             print("Exception occurred. Did not load model, starting from scratch.\n", e)
 
+    def load_state_data( self ):
+        """Load the state stored in the config into the given model and optimizer.
+        Model and optimizer must match exactly to the stored model, will crash
+        otherwise.
+        """
+        try:
+            if torch.cuda.is_available():
+                checkpoint = torch.load(self.config['input'].get('checkpoint'))
+            else:
+                checkpoint = torch.load(self.config['input'].get('checkpoint'), map_location='cpu')
+            if 'train_file' in checkpoint:
+                self.train_file = checkpoint['train_file'] 
+                self.train_root = checkpoint['train_root']
+            if 'test_file' in checkpoint:
+                self.test_file = checkpoint['test_file'] 
+                self.test_root = checkpoint['test_root'] 
+            if 'train_indices' in checkpoint:
+                self.split_indices = [(checkpoint['train_indices'], checkpoint['test_indices'])]
+            print("=> loaded data configuration")
+        except OSError as e:
+            print("Exception occurred. Did not load data\n", e)
+
+    def load_data_split( self ):
+        """Load the state stored in the config into the given model and optimizer.
+        Model and optimizer must match exactly to the stored model, will crash
+        otherwise.
+        """
+        try:
+            if torch.cuda.is_available():
+                checkpoint = torch.load(self.config['input'].get('checkpoint'))
+            else:
+                checkpoint = torch.load(self.config['input'].get('checkpoint'), map_location='cpu')
+            if 'train_indices' in checkpoint:
+                self.split_indices = [(checkpoint['train_indices'], checkpoint['test_indices'])]
+            else:
+                print('No split information found.')
+
+        except OSError as e:
+            print("Exception occurred. Did not load data\n", e)
 
     def _get_training_transform( self, normalize_factors=None ):
         image_size = self.config['files'].getint('image size', 299)
@@ -336,7 +386,6 @@ class RetinaCheckerPandas():
             print('No training loader defined. Check configuration.')
             return
 
-        start_time_epoch = time.time()
         losses = AverageMeter()
         accuracy = AccuracyMeter()
         self.model.train()

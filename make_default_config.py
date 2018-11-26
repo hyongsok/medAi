@@ -13,7 +13,6 @@ def get_config():
     'pretrained': False,
     'optimizer': 'Adam',
     'criterion': 'BCEWithLogitsLoss',
-    'multiclass': True
     }
 
     config['hyperparameter'] = {
