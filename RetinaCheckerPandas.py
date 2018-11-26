@@ -16,7 +16,10 @@ from time_left import pretty_print_time, pretty_time_left
 
 
 def single_output_performance( labels, outputs, feature_number=5 ):
-    predicted = nn.Sigmoid()(outputs)
+    if isinstance(outputs, tuple):
+        predicted = nn.Sigmoid()(outputs[0])
+    else:
+        predicted = nn.Sigmoid()(outputs)
     perf2 = (predicted[:,feature_number].round()==labels[:,feature_number])
     num_correct = float(perf2.sum())
     return num_correct
