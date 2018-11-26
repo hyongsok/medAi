@@ -160,6 +160,19 @@ class RetinaCheckerPandas():
         self.model.AuxLogits.fc = nn.Linear(self.model.AuxLogits.fc.in_features, self.num_classes)
         self.model = self.model.to(self.device)
 
+    def initialize_model_without_logits( self, **kwargs ):
+        model_loader = None
+        if self.model_name in models.__dict__.keys():
+            model_loader = models.__dict__[self.model_name]
+        else:
+            warnings.warn('Could not identify model')
+            return
+        
+        self.model = model_loader( pretrained=self.model_pretrained, **kwargs)
+        num_ftrs = self.model.fc.in_features
+        self.model.fc = nn.Linear(num_ftrs, self.num_classes)
+        self.model = self.model.to(self.device)
+
     def load_datasets( self, test_size=0.1 ):
         '''Loads the data sets from the path given in the config file
         '''
