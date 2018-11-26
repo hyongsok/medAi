@@ -346,10 +346,10 @@ class RetinaCheckerPandas():
         rotation_angle = self.config['transform'].getint('rotation angle', 180)
         rotation = transforms.RandomRotation(rotation_angle)
         
-        brightness = self.config['transform'].getint('brightness', 0)
-        contrast = self.config['transform'].getint('contrast', 0)
-        saturation = self.config['transform'].getint('saturation', 0)
-        hue = self.config['transform'].getint('hue', 0)
+        brightness = self.config['transform'].getfloat('brightness', 0)
+        contrast = self.config['transform'].getfloat('contrast', 0)
+        saturation = self.config['transform'].getfloat('saturation', 0)
+        hue = self.config['transform'].getfloat('hue', 0)
         color_jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
         
         transform_list = [
