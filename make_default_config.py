@@ -9,11 +9,11 @@ def get_config():
     config = configparser.ConfigParser()
 
     config['network'] = {
-    'model': 'resnet18',
+    'model': 'inception_v3',
     'pretrained': False,
     'optimizer': 'Adam',
-    'criterion': 'CrossEntropyLoss',
-    'multiclass': False
+    'criterion': 'BCEWithLogitsLoss',
+    'multiclass': True
     }
 
     config['hyperparameter'] = {
@@ -29,7 +29,7 @@ def get_config():
     'train root': './train',
     'test file': '',
     'test root': '',
-    'image size': 224,
+    'image size': 299,
     'samples': 6400,
     'num workers': 8
     }
