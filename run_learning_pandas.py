@@ -43,7 +43,7 @@ def main():
         rc.load_state()
 
     print('Model set up. Ready to train.')
- 
+    print(rc)
 
     # Performance meters initalized (either empty or from file)
     num_epochs = rc.start_epoch + config['hyperparameter'].getint('epochs', 10)
@@ -74,8 +74,8 @@ def main():
         test_accuracy[epoch] = accuracy.avg
         test_confusion[epoch,:,:] = confusion
 
-        print('Test Accuracy of the model on the {} test images: {} %'.format(accuracy.count, accuracy.avg*100))
-        print('Classes: {}'.format(rc.classes))
+        #print('Test Accuracy of the model on the {} test images: {} %'.format(accuracy.count, accuracy.avg*100))
+        #print('Classes: {}'.format(rc.classes))
         print('Confusion matrix:\n', (confusion))
 
         #confusion_2class = reduce_to_2_classes( confusion, [(0,1), (2,3,4)])
@@ -100,25 +100,18 @@ def main():
                         config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
             best_accuracy = accuracy.avg
         
-        if accuracy_2class > best_accuracy_2class:
-            rc.save_state( train_loss[:(epoch+1)], 
-                        train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
-                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
-                        config['output'].get('filename', 'model')+'_best_accuracy_2class'+config['output'].get('extension', '.ckpt') )
-            best_accuracy_2class = accuracy_2class
-
         if sensitivity_2class > best_sensitivity:
             rc.save_state( train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
-                        config['output'].get('filename', 'model')+'_best_sensitivity_2class'+config['output'].get('extension', '.ckpt') )
+                        config['output'].get('filename', 'model')+'_best_sensitivity'+config['output'].get('extension', '.ckpt') )
             best_sensitivity = sensitivity_2class
 
         if specificity_2class > best_specificity:
             rc.save_state( train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
-                        config['output'].get('filename', 'model')+'_best_specificity_2class'+config['output'].get('extension', '.ckpt') )
+                        config['output'].get('filename', 'model')+'_best_specificity'+config['output'].get('extension', '.ckpt') )
             best_specificity = specificity_2class
 
         save_performance( train_loss[:(epoch+1)], train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 

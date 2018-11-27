@@ -12,8 +12,6 @@ import torchvision.transforms as transforms
 
 import PandasDataset
 from helper_functions import AccuracyMeter, AverageMeter
-from time_left import pretty_print_time, pretty_time_left
-
 
 def single_output_performance( labels, outputs, feature_number=5 ):
     if isinstance(outputs, tuple):
@@ -76,15 +74,21 @@ class RetinaCheckerPandas():
                 desc += '\n'
             desc += 'Optimizer: ' + self.optimizer_name + '\n'
             desc += 'Criterion: ' + self.criterion_name + '\n'
-            desc += 'Epoch: ' + str(self.epoch) + ' started at ' + str(self.start_epoch) + '\n'
+            desc += 'Epoch: ' + str(self.epoch) + '\n'
             desc += 'Training root: ' + str(self.train_root) + '\n'
             desc += 'Training file: ' + str(self.train_file) + '\n'
             if self.train_dataset is not None:
                 desc += str(self.train_dataset) + '\n'
+            if self.train_loader is not None:
+                desc += 'Batch size: ' + str(self.train_loader.batch_size) + '\n'
+                desc += 'Workers: ' + str(self.train_loader.num_workers) + '\n'
             desc += 'Test root: ' + str(self.test_root) + '\n'
             desc += 'Test file: ' + str(self.test_file) + '\n'
             if self.test_dataset is not None:
                 desc += str(self.test_dataset) + '\n'
+            if self.test_loader is not None:
+                desc += 'Batch size: ' + str(self.test_loader.batch_size) + '\n'
+                desc += 'Workers: ' + str(self.test_loader.num_workers) + '\n'
             desc += 'Classes: ' + str(self.classes) + '\n'
             
 
@@ -486,7 +490,7 @@ class RetinaCheckerPandas():
                 for pred, lab in zip(predicted[:,5], labels[:,5]):
                     confusion[int(pred.item()), int(lab.item())] += 1
 
-                print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), num_correct, num_correct/labels.size(0)*100, loss.item()))
+                #print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), num_correct, num_correct/labels.size(0)*100, loss.item()))
                 
         
         return losses, accuracy, confusion
