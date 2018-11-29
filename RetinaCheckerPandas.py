@@ -291,7 +291,7 @@ class RetinaCheckerPandas():
         otherwise.
         """
         try:
-            if torch.cuda.is_available() and self.device.type.beginswith('cuda'):
+            if torch.cuda.is_available() and self.device.type.startswith('cuda'):
                 checkpoint = torch.load(self.config['input'].get('checkpoint'))
             else:
                 checkpoint = torch.load(self.config['input'].get('checkpoint'), map_location='cpu')
