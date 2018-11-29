@@ -38,7 +38,9 @@ def get_config():
     'brightness': 0,
     'contrast': 0,
     'saturation': 0,
-    'hue': 0
+    'hue': 0,
+    'min scale': 0.25,
+    'max scale': 1.0
     }
 
     config['output'] = {
