@@ -354,13 +354,15 @@ class RetinaCheckerPandas():
         contrast = self.config['transform'].getfloat('contrast', 0)
         saturation = self.config['transform'].getfloat('saturation', 0)
         hue = self.config['transform'].getfloat('hue', 0)
+        min_scale = self.config['transform'].getfloat('min scale', 0.25)
+        max_scale = self.config['transform'].getfloat('max scale', 1.0)
         color_jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
         
         transform_list = [
                 color_jitter,
                 rotation,
                 transforms.RandomHorizontalFlip(),
-                transforms.RandomResizedCrop(size=image_size, scale=(0.25,1.0), ratio=(1,1)),
+                transforms.RandomResizedCrop(size=image_size, scale=(min_scale, max_scale), ratio=(1,1)),
                 transforms.ToTensor(),
             ]
         
