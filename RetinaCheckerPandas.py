@@ -34,6 +34,7 @@ class RetinaCheckerPandas():
         self.model_name = 'inception_v3'
         self.optimizer = None
         self.optimizer_name = 'Adam'
+        self.scheduler = None
         self.criterion = None
         self.criterion_name = 'BCEWithLogitsLoss'
 
@@ -61,6 +62,8 @@ class RetinaCheckerPandas():
         self.epoch = 0
 
         self.learning_rate = None
+        self.learning_rate_decay_gamma = None
+        self.learning_rate_decay_step_size = None
 
         self.initialized = False
 
@@ -123,6 +126,11 @@ class RetinaCheckerPandas():
             self.normalize_factors = [self.normalize_mean, self.normalize_std]
 
         self.model_pretrained = self.config['network'].getboolean('pretrained', False)
+
+        self.learning_rate = self.config['hyperparameter'].getfloat('learning rate', 0.01)
+        self.learning_rate_decay_step_size = self.config['hyperparameter'].getfloat('lr decay step', 50)
+        self.learning_rate_decay_gamma = self.config['hyperparameter'].getfloat('lr decay gamma', 0.5)
+
         if self.device is None:
             self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         print('Using device', self.device)
@@ -137,8 +145,8 @@ class RetinaCheckerPandas():
             warnings.warn('Could not identify optimizer')
             return
 
-        self.learning_rate = self.config['hyperparameter'].getfloat('learning rate', 0.01)
         self.optimizer = optimizer_loader(self.model.parameters(), lr=self.learning_rate, **kwargs)
+        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, self.learning_rate_decay_step_size, gamma=self.learning_rate_decay_gamma)
 
     def initialize_criterion( self, **kwargs ):
         criterion_loader = None
@@ -299,6 +307,8 @@ class RetinaCheckerPandas():
             self.epoch = self.start_epoch
             self.model.load_state_dict(checkpoint['state_dict'], strict=False)
             self.optimizer.load_state_dict(checkpoint['optimizer'])
+            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, self.learning_rate_decay_step_size, gamma=self.learning_rate_decay_gamma, last_epoch=self.start_epoch)
+
             print("=> loaded checkpoint '{}' (epoch {})"
                     .format(self.config['input'].get('checkpoint'), checkpoint['epoch']))
         except OSError as e:
@@ -412,6 +422,7 @@ class RetinaCheckerPandas():
         losses = AverageMeter()
         accuracy = AccuracyMeter()
         self.model.train()
+        self.scheduler.step()
 
         for i, (images, labels) in enumerate(self.train_loader):
             images = images.to(self.device)

@@ -19,6 +19,8 @@ def get_config():
     'epochs': 50,
     'batch size': 64,
     'learning rate': 0.001,
+    'lr decay step': 50,
+    'lr decay gamma': 0.5,
     'normalize mean': '[0.1,0.2,0.3]',
     'normalize std': '[0.1,0.2,0.3]'
     }
