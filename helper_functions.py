@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import torchvision
 
 class AverageMeter(object):
     """Computes and stores the average and current value
@@ -172,3 +173,10 @@ def save_performance( train_loss, train_accuracy, test_loss, test_accuracy, test
         'test_confusion': test_confusion,
         'classes': classes,
         }, filename)    
+
+
+def denormalize(normalize):
+    std = 1/np.array(normalize.std)
+    mean = np.array(normalize.mean)*-1*std
+    denorm = torchvision.transforms.Normalize(mean=mean, std=std)   
+    return denorm
