@@ -279,7 +279,8 @@ class RetinaCheckerPandas():
             'test_loss': test_loss,
             'test_accuracy': test_accuracy,
             'test_confusion': test_confusion,
-            'classes': self.classes
+            'classes': self.classes,
+            'scheduler': self.scheduler.state_dict()
         }
         if self.train_file is not None:
             save_dict['train_file'] = self.train_file
@@ -307,7 +308,11 @@ class RetinaCheckerPandas():
             self.epoch = self.start_epoch
             self.model.load_state_dict(checkpoint['state_dict'], strict=False)
             self.optimizer.load_state_dict(checkpoint['optimizer'])
-            self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, self.learning_rate_decay_step_size, gamma=self.learning_rate_decay_gamma, last_epoch=self.start_epoch)
+            if 'scheduler' in checkpoint:
+                self.scheduler.load_state_dict(checkpoint['scheduler'])
+            else:
+                # initial_lr is not set, so we cannot set the last_epoch without creating an error
+                self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, self.learning_rate_decay_step_size, gamma=self.learning_rate_decay_gamma, last_epoch=self.start_epoch)
 
             print("=> loaded checkpoint '{}' (epoch {})"
                     .format(self.config['input'].get('checkpoint'), checkpoint['epoch']))
