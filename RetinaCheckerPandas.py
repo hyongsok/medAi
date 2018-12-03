@@ -312,6 +312,9 @@ class RetinaCheckerPandas():
                 self.scheduler.load_state_dict(checkpoint['scheduler'])
             else:
                 # initial_lr is not set, so we cannot set the last_epoch without creating an error
+                for g in self.optimizer.param_groups:
+                    if 'initial_lr' not in g:
+                        g['initial_lr'] = g['lr']
                 self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, self.learning_rate_decay_step_size, gamma=self.learning_rate_decay_gamma, last_epoch=self.start_epoch)
 
             print("=> loaded checkpoint '{}' (epoch {})"
