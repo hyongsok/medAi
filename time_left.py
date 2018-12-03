@@ -20,9 +20,15 @@ class TimeLeft(object):
         val = self.pretty_time_left(self.counter)
         return val
 
+    def __format__(self, format_spec):
+        return str(self)
+
     def __call__(self, counter):
         self.counter = counter
         return self
+
+    def print(self, counter):
+        print('\r{}        '.format(self(counter)), end='', flush=True)
 
 def pretty_time_left( start_time, current_iteration, max_iterations ):
     return pretty_print_time( time_left( start_time, current_iteration, max_iterations ) )
