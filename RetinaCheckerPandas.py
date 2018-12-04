@@ -115,10 +115,10 @@ class RetinaCheckerPandas():
         self.train_file = self.config['files'].get('train file', 'labels.csv')
         self.test_root = self.config['files'].get('test root', None)
         self.test_file = self.config['files'].get('test file', None)
-        normalize_mean = self.config['hyperparameter'].get('normalize mean', None)
+        normalize_mean = self.config['transform'].get('normalize mean', None)
         if normalize_mean is not None:
             self.normalize_mean = json.loads(normalize_mean)
-        normalize_std = self.config['hyperparameter'].get('normalize std', None)
+        normalize_std = self.config['transform'].get('normalize std', None)
         if normalize_std is not None:
             self.normalize_std = json.loads(normalize_std)
 
@@ -193,7 +193,7 @@ class RetinaCheckerPandas():
             test_transform = self._get_test_transform(self.normalize_factors)
             if self.split_indices is not None:
                 dataset = PandasDataset.PandasDataset(source=self.test_file, mode='csv', root=self.test_root)
-                self.test_dataset = dataset.subset(self.split_indices[0][1])
+                self.test_dataset = dataset.subset(self.split_indices[1])
                 self.test_dataset.transform = test_transform
             else:
                 self.test_dataset = PandasDataset.PandasDataset(source=self.test_file, mode='csv',
@@ -205,8 +205,8 @@ class RetinaCheckerPandas():
             
             if self.split_indices is not None:
                 dataset = PandasDataset.PandasDataset(source=self.train_file, mode='csv', root=self.train_root)
-                self.train_dataset = dataset.subset(self.split_indices[0][0])
-                self.test_dataset = dataset.subset(self.split_indices[0][1])
+                self.train_dataset = dataset.subset(self.split_indices[0])
+                self.test_dataset = dataset.subset(self.split_indices[1])
                 self.train_dataset.transform = train_transform
                 self.test_dataset.transform = test_transform
             elif self.test_file is None or not os.path.isfile(self.test_file): 
@@ -289,8 +289,8 @@ class RetinaCheckerPandas():
             save_dict['test_file'] = self.test_file
             save_dict['test_root'] = self.test_root 
         if self.split_indices is not None:
-            save_dict['train_indices'] = self.split_indices[0][0]
-            save_dict['test_indices'] = self.split_indices[0][1] 
+            save_dict['train_indices'] = self.split_indices[0]
+            save_dict['test_indices'] = self.split_indices[1] 
             
         torch.save(save_dict, filename)
 

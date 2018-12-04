@@ -158,7 +158,8 @@ class PandasDataset(torch.utils.data.Dataset):
                                     loader=self.loader, extensions=self.extensions, transform=self.transform, 
                                     target_transform=self.target_transform)
         if return_indices is not None and isinstance(return_indices, list):
-            return_indices.append((train_index, test_index))
+            return_indices.append(train_index)
+            return_indices.append(test_index)
         return train_set, test_set
 
 

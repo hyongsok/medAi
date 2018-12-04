@@ -20,9 +20,7 @@ def get_config():
     'batch size': 64,
     'learning rate': 0.001,
     'lr decay step': 50,
-    'lr decay gamma': 0.5,
-    'normalize mean': '[0.1,0.2,0.3]',
-    'normalize std': '[0.1,0.2,0.3]'
+    'lr decay gamma': 0.5
     }
 
     config['files'] = {
@@ -42,7 +40,9 @@ def get_config():
     'saturation': 0,
     'hue': 0,
     'min scale': 0.25,
-    'max scale': 1.0
+    'max scale': 1.0,
+    'normalize mean': '[0.1,0.2,0.3]',
+    'normalize std': '[0.1,0.2,0.3]'
     }
 
     config['output'] = {
