@@ -10,7 +10,6 @@ import pandas as pd
 import PandasDataset
 from torch.utils.data import DataLoader
 
-
 def crop_image( im, inner_box=False ):
     boxes = find_retina_boxes( im )
     if boxes is None:
@@ -137,7 +136,8 @@ def process_folder( source, target, inner = False ):
         try:
             im = imageio.imread(os.path.join(source, f))
         except ValueError as e:
-            print('Error while reading file', os.path.join(source, f), '\n', e)
+            print('No supported image format: {} - skipping.'.format(os.path.join(source, f)))
+            #print('Error while reading file', os.path.join(source, f), '\n', e)
             continue
             
         im = crop_image( im, inner )
