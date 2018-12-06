@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torchvision
+import matplotlib.pyplot as plt
 
 class AverageMeter(object):
     """Computes and stores the average and current value
@@ -180,3 +181,18 @@ def denormalize(normalize):
     mean = np.array(normalize.mean)*-1*std
     denorm = torchvision.transforms.Normalize(mean=mean, std=std)   
     return denorm
+
+def imshow(img, figsize=(8,8)):
+    fig, ax = plt.subplots(1,1,figsize=figsize)
+    plt.subplots_adjust(top=1,bottom=0,left=0,right=1)
+    ax.imshow(img)
+    plt.xticks([])
+    plt.yticks([])
+
+def image_subplots(nrows=1, ncols=1, sharex=False, sharey=False, squeeze=True, subplot_kw=None, gridspec_kw=None, figsize=(10,10), top=1, bottom=0, left=0, right=1, hspace=0.05, wspace=0.05, **kwargs):
+    fig, ax = plt.subplots(nrows, ncols, sharex, sharey, squeeze, subplot_kw, gridspec_kw, figsize=figsize, **kwargs)
+    plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
+    return fig, ax
+
+def plot_patches(img, figsize=(10,10)):
+    pass
