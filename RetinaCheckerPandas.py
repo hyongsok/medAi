@@ -374,13 +374,20 @@ class RetinaCheckerPandas():
         hue = self.config['transform'].getfloat('hue', 0)
         min_scale = self.config['transform'].getfloat('min scale', 0.25)
         max_scale = self.config['transform'].getfloat('max scale', 1.0)
-        color_jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)
+        color_jitter = transforms.RandomApply(transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue))
         
+        randcrop = transforms.RandomChoice((
+            transforms.RandomResizedCrop(size=image_size, scale=(min_scale, max_scale), ratio=(1,1)),
+            transforms.RandomResizedCrop(size=image_size, scale=(min_scale, 0.4), ratio=(0.8,1.25)),
+            transforms.RandomResizedCrop(size=image_size, scale=(min_scale, 0.4), ratio=(0.8,1.25))
+        ))
+
         transform_list = [
                 color_jitter,
-                rotation,
+                #rotation,
                 transforms.RandomHorizontalFlip(),
-                transforms.RandomResizedCrop(size=image_size, scale=(min_scale, max_scale), ratio=(1,1)),
+                transforms.RandomVerticalFlip(),
+                randcrop,
                 transforms.ToTensor(),
             ]
         
@@ -398,7 +405,7 @@ class RetinaCheckerPandas():
         # normalization factors for the DMR dataset were manually derived
 
         transform_list = [
-                transforms.Resize(size=int(image_size*1.1)),
+                transforms.Resize(size=image_size),
                 transforms.CenterCrop(size=image_size),
                 transforms.ToTensor(),
             ]
