@@ -374,7 +374,7 @@ class RetinaCheckerPandas():
         hue = self.config['transform'].getfloat('hue', 0)
         min_scale = self.config['transform'].getfloat('min scale', 0.25)
         max_scale = self.config['transform'].getfloat('max scale', 1.0)
-        color_jitter = transforms.RandomApply(transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue))
+        color_jitter = transforms.RandomApply([transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)])
         
         randcrop = transforms.RandomChoice((
             transforms.RandomResizedCrop(size=image_size, scale=(min_scale, max_scale), ratio=(1,1)),
