@@ -524,7 +524,7 @@ class RetinaCheckerPandas():
         return losses, accuracy, confusion
 
 
-    def _get_sampler( self, dataset, num_samples ):
+    def _get_sampler( self, dataset, num_samples, relevant_slice=range(5) ):
         '''The distribution of samples in training and test data is not equal, i.e.
         the normal class is over represented. To get an unbiased sample (for example with 5
         classes each class should make up for about 20% of the samples) we calculate the 
@@ -540,17 +540,16 @@ class RetinaCheckerPandas():
             torch.util.data.Sampler -- Sampler object from which patches for the training
             or evaluation can be drawn
         '''
-        class_distribution = np.vstack([s for s in dataset.targets]).astype(np.int)
-        weights = np.zeros(self.num_classes)
-        for ii in range(self.num_classes):
+        class_distribution = np.vstack([s for s in dataset.targets]).astype(np.int)[:,relevant_slice]
+        weights = np.zeros(len(relevant_slice))
+        for ii in range(len(relevant_slice)):
             weights[ii] = np.sum(class_distribution[:,ii] == 1)/len(class_distribution)
 
         inverted_weights = (1/weights)/np.sum(1/weights)
         sampling_weights = np.zeros(class_distribution.shape[0], dtype=np.float)
-        for ii in range(self.num_classes):
+        for ii in range(len(relevant_slice)):
             sampling_weights[class_distribution[:,ii] == 1] = inverted_weights[ii]
         sampling_weights /= sampling_weights.sum()
-
 
         sampler = torch.utils.data.WeightedRandomSampler( sampling_weights, num_samples, True )
         return sampler
