@@ -98,6 +98,13 @@ def main():
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
                         config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
             best_accuracy = accuracy.avg
+
+        if accuracy.avg >= best_accuracy:
+            rc.save_state( train_loss[:(epoch+1)], 
+                        train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
+                        config['output'].get('filename', 'model')+'_best_accuracy_later'+config['output'].get('extension', '.ckpt') )
+            best_accuracy = accuracy.avg
         
         if sensitivity_2class > best_sensitivity:
             rc.save_state( train_loss[:(epoch+1)], 
