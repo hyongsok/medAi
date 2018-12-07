@@ -189,10 +189,37 @@ def imshow(img, figsize=(8,8)):
     plt.xticks([])
     plt.yticks([])
 
-def image_subplots(nrows=1, ncols=1, sharex=False, sharey=False, squeeze=True, subplot_kw=None, gridspec_kw=None, figsize=(10,10), top=1, bottom=0, left=0, right=1, hspace=0.05, wspace=0.05, **kwargs):
+def image_subplots(nrows=1, ncols=1, sharex=True, sharey=True, squeeze=True, subplot_kw=None, gridspec_kw=None, figsize=(10,10), top=1, bottom=0, left=0, right=1, hspace=0.05, wspace=0.05, **kwargs):
     fig, ax = plt.subplots(nrows, ncols, sharex, sharey, squeeze, subplot_kw, gridspec_kw, figsize=figsize, **kwargs)
     plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
     return fig, ax
 
 def plot_patches(img, figsize=(10,10)):
-    pass
+    if img.ndim == 4:
+        n, h, w, c = img.shape
+    elif img.ndim == 3:
+        n, h, w = img.shape
+        c = 1
+    else:
+        print('Failed.')
+        return None
+    
+    ncols = int(np.sqrt(n))
+    nrows = int(n/ncols)
+    while (nrows * ncols) != n:
+        ncols -= 1
+        nrows = int(n/ncols)
+    
+    fig, ax = image_subplots(nrows=nrows, ncols=ncols, figsize=figsize)
+    counter = 0
+    for ii in range(nrows):
+        for jj in range(ncols):
+            if counter < n:
+                ax[ii,jj].imshow(img[ii*ncols+jj,...])
+            else:
+                ax[ii,jj].axis('off')
+            counter += 1
+
+    plt.xticks([])
+    plt.yticks([])
+    return fig, ax
