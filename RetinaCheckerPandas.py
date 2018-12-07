@@ -12,6 +12,7 @@ import torchvision.transforms as transforms
 
 import PandasDataset
 from helper_functions import AccuracyMeter, AverageMeter
+import inception_short
 
 def single_output_performance( labels, outputs, feature_number=5 ):
     if isinstance(outputs, tuple):
@@ -167,6 +168,15 @@ class RetinaCheckerPandas():
             return
         
         self.model = model_loader( pretrained=self.model_pretrained, **kwargs)
+        num_ftrs = self.model.fc.in_features
+        self.model.fc = nn.Linear(num_ftrs, self.num_classes)
+        self.model.AuxLogits.fc = nn.Linear(self.model.AuxLogits.fc.in_features, self.num_classes)
+        self.model = self.model.to(self.device)
+
+    def initialize_model_inception_short( self, **kwargs ):
+        model_loader = inception_short.inception_v3
+        
+        self.model = model_loader( pretrained=False, **kwargs)
         num_ftrs = self.model.fc.in_features
         self.model.fc = nn.Linear(num_ftrs, self.num_classes)
         self.model.AuxLogits.fc = nn.Linear(self.model.AuxLogits.fc.in_features, self.num_classes)
