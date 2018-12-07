@@ -290,7 +290,8 @@ class RetinaCheckerPandas():
             'test_accuracy': test_accuracy,
             'test_confusion': test_confusion,
             'classes': self.classes,
-            'scheduler': self.scheduler.state_dict()
+            'scheduler': self.scheduler.state_dict(),
+            'description': str(self)
         }
         if self.train_file is not None:
             save_dict['train_file'] = self.train_file
