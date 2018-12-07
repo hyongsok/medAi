@@ -32,10 +32,10 @@ def main():
     rc.create_dataloader(config['files'].getint('num workers', 0))
 
     # Initialize the model
-    rc.model = inception_short.inception_v3( pretrained=False)
+    rc.model = inception_short.Inception3XS()
     num_ftrs = rc.model.fc.in_features
     rc.model.fc = nn.Linear(num_ftrs, rc.num_classes)
-    rc.model.AuxLogits.fc = nn.Linear(rc.model.AuxLogits.fc.in_features, rc.num_classes)
+    #rc.model.AuxLogits.fc = nn.Linear(rc.model.AuxLogits.fc.in_features, rc.num_classes)
     rc.model = rc.model.to(rc.device)    
     rc.initialize_criterion()
     rc.initialize_optimizer()
