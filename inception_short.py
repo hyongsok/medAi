@@ -147,7 +147,7 @@ class Inception3XS(nn.Module):
         self.Mixed_5b = InceptionA(192, pool_features=32)
         self.Mixed_5c = InceptionA(256, pool_features=64)
         self.Mixed_5d = InceptionA(288, pool_features=64)
-        self.Mixed_6a = InceptionB(288)
+        #self.Mixed_6a = InceptionB(288)
         #if aux_logits:
         #    self.AuxLogits = InceptionAux(288, num_classes)
         #self.Mixed_6b = InceptionC(768, channels_7x7=128)
