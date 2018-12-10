@@ -4,31 +4,19 @@ import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 
 
-__all__ = ['Inception3', 'inception_v3']
+__all__ = ['Inception3S', 'Inception3XS', 'inception_v3_s', 'inception_v3_xs']
 
-
-model_urls = {
-    # Inception v3 ported from TensorFlow
-    'inception_v3_google': 'https://download.pytorch.org/models/inception_v3_google-1a9a5a14.pth',
-}
-
-
-def inception_v3(pretrained=False, **kwargs):
-    r"""Inception v3 model architecture from
-    `"Rethinking the Inception Architecture for Computer Vision" <http://arxiv.org/abs/1512.00567>`_.
-
-    Args:
-        pretrained (bool): If True, returns a model pre-trained on ImageNet
-    """
-    #if pretrained:
-    #    if 'transform_input' not in kwargs:
-    #        kwargs['transform_input'] = True
-    #    model = Inception3(**kwargs)
-    #    model.load_state_dict(model_zoo.load_url(model_urls['inception_v3_google']), strict=False)
-    #    return model
+def inception_v3_s(pretrained=False, **kwargs):
+    if pretrained:
+        print('No pretraining available. Using random.')
 
     return Inception3S(**kwargs)
 
+def inception_v3_xs(pretrained=False, **kwargs):
+    if pretrained:
+        print('No pretraining available. Using random.')
+
+    return Inception3XS(**kwargs)   
 
 class Inception3S(nn.Module):
 
@@ -135,9 +123,8 @@ class Inception3S(nn.Module):
 
 class Inception3XS(nn.Module):
 
-    def __init__(self, num_classes=1000, aux_logits=True, transform_input=False):
+    def __init__(self, num_classes=1000, transform_input=False):
         super(Inception3XS, self).__init__()
-        self.aux_logits = aux_logits
         self.transform_input = transform_input
         self.Conv2d_1a_3x3 = BasicConv2d(3, 32, kernel_size=3, stride=2)
         self.Conv2d_2a_3x3 = BasicConv2d(32, 32, kernel_size=3)

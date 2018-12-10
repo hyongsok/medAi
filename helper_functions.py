@@ -183,7 +183,7 @@ def denormalize(normalize):
     return denorm
 
 def imshow(img, figsize=(8,8)):
-    fig, ax = plt.subplots(1,1,figsize=figsize)
+    _, ax = plt.subplots(1,1,figsize=figsize)
     plt.subplots_adjust(top=1,bottom=0,left=0,right=1)
     ax.imshow(img)
     plt.xticks([])
@@ -194,7 +194,7 @@ def image_subplots(nrows=1, ncols=1, sharex=True, sharey=True, squeeze=True, sub
     plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
     return fig, ax
 
-def plot_patches(img, figsize=(10,10)):
+def plot_patches(img, figsize=(10,10), ncols = None):
     if img.ndim == 4:
         n, h, w, c = img.shape
     elif img.ndim == 3:
@@ -204,7 +204,8 @@ def plot_patches(img, figsize=(10,10)):
         print('Failed.')
         return None
     
-    ncols = int(np.sqrt(n))
+    if ncols is None or ncols < 1:
+        ncols = int(np.sqrt(n))
     nrows = int(n/ncols)
     while (nrows * ncols) != n:
         ncols -= 1

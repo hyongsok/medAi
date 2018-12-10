@@ -62,7 +62,6 @@ def main(argv):
     epsilon_stop = config['hyperparameter'].getfloat('early stop threshold', 10)
     stop_length = config['hyperparameter'].getint('early stop window', 40)
     stop_x = np.arange(stop_length).reshape(-1,1)
-    last_slope = np.NaN
 
     # Time tracking
     timer = TimeLeft(num_epochs, rc.start_epoch)
@@ -155,8 +154,6 @@ def main(argv):
             if test_slope < epsilon_stop:
                 print('Early stopping criterion met: {} < {}'.format(test_slope, epsilon_stop))
                 break
-            else:
-                last_slope = test_slope
 
 
     # Save the model checkpoint

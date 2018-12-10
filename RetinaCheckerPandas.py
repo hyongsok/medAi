@@ -7,7 +7,8 @@ import json
 import numpy as np
 import torch
 import torch.nn as nn
-import torchvision.models as models
+#import torchvision.models as models
+import model_wrapper as models
 import torchvision.transforms as transforms
 
 import PandasDataset
