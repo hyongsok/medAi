@@ -192,6 +192,20 @@ class PandasDataset(torch.utils.data.Dataset):
         self.samples.append(other.samples)
         self.refresh()
 
+    def append_csv(self, source, root=None, nan_replace=None):
+        samples = pd.read_csv(source, index_col=0)
+        if not root is None:
+            name = samples.index.name
+            samples.index = [str(Path(root) / Path(ind)) for ind in samples.index]
+            samples.index.name = name
+
+        self.samples = self.samples.append(samples, sort=False)
+
+        if nan_replace is not None:
+            self.samples[self.samples.isna()] = nan_replace
+        
+        self.refresh()
+
     def refresh(self):
         classes = self.samples.columns
         class_to_idx = dict(enumerate(classes))
