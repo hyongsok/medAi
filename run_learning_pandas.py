@@ -142,7 +142,7 @@ def main():
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1) )
         
         accuracy_window = test_accuracy[max(epoch-stop_length+1, 0):epoch+1].reshape(-1,1)
-        x_window = stop_x[:len(accuracy_window)]
+        x_window = stop_x[:len(accuracy_window)].reshape(-1,1)
         test_slope = LinearRegression().fit(x_window, accuracy_window).coef_[0,0]
 
         # Output on progress
