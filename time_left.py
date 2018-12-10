@@ -32,7 +32,7 @@ class TimeLeft(object):
         return pretty_time_left(self.start_time, ii-self.start_iteration, self.max_iterations-self.start_iteration)
 
     def elapsed(self):
-        return time.time()-self.start_time
+        return pretty_print_time(time.time()-self.start_time)
 
     def lap(self):
         dt = time.time() - self.lap_time
