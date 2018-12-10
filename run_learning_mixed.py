@@ -10,11 +10,11 @@ from make_default_config import get_config
 from sklearn.linear_model import LinearRegression
 
 
-def main():
+def main(argv):
 
     # Reading configuration file
     config = configparser.ConfigParser()
-    if len(sys.argv) > 1:
+    if len(argv) > 1:
         config.read(sys.argv[1])
     else:
         config = get_config()
@@ -180,4 +180,4 @@ def main():
                 print(e)
 
 if __name__ == '__main__':
-    main()
+    main(sys.argv)
