@@ -65,7 +65,7 @@ def main():
     epsilon_stop = 0.001
     stop_length = 10
     stop_x = np.arange(stop_length).reshape(-1,1)
-    last_coef = np.NaN
+    last_slope = np.NaN
 
     # Time tracking
     timer = TimeLeft(num_epochs, rc.start_epoch)
@@ -146,7 +146,7 @@ def main():
 
         accuracy_window = test_accuracy[max(epoch-stop_length+1, 0):epoch+1].reshape(-1,1)
         x_window = stop_x[:len(accuracy_window)]
-        test_slope = LinearRegression().fit(x_window, accuracy_window).coef_
+        test_slope = LinearRegression().fit(x_window, accuracy_window).coef_[0,0]
 
         # Output on progress
         print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}, test acc slope {}, validation in {}'
@@ -156,7 +156,7 @@ def main():
 
         if early_stop and epoch >= (stop_length-1):
             if test_slope < epsilon_stop:
-                print('Early stopping criterion met: {} < {}'.format(last_coef, epsilon_stop))
+                print('Early stopping criterion met: {} < {}'.format(test_slope, epsilon_stop))
                 break
             else:
                 last_slope = test_slope
