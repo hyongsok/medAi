@@ -95,6 +95,11 @@ def main():
                         config['output'].get('filename', 'model')+'_after_epoch_{}'.format(epoch+1)+config['output'].get('extension', '.ckpt') )
         
         if accuracy.avg > best_accuracy:
+            if os.path.exists(config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt')):
+                os.rename(
+                    config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt'),
+                    config['output'].get('filename', 'model')+'_second_best_accuracy'+config['output'].get('extension', '.ckpt')
+                )
             rc.save_state( train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
