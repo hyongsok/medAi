@@ -52,13 +52,22 @@ def main():
     train_loss, train_accuracy, test_loss, test_accuracy, test_confusion = initialize_meters( config, rc.start_epoch, num_epochs, 2 )
 
     # Starting training & evaluation
-    start_time = time.time()
     best_accuracy = 0
-    best_accuracy_2class = 0
     best_sensitivity = 0
     best_specificity = 0
+
+    # early stopping criteria:
+    # if the slope of the linear fit to the validation accuracy (\in [0...1]) over the
+    # last n epochs is smaller than epsilon
+    early_stop = True
+    epsilon_stop = -10
+    stop_length = 2
+    stop_x = np.arange(stop_length).reshape(-1,1)
+    last_coef = np.NaN
+
+    # Time tracking
+    timer = TimeLeft(num_epochs, rc.start_epoch)
     for epoch in range(rc.start_epoch, num_epochs):
-        start_time_epoch = time.time()
 
         # Train the model and record training loss & accuracy
         losses, accuracy = rc.train()
@@ -96,6 +105,8 @@ def main():
         
         if accuracy.avg > best_accuracy:
             if os.path.exists(config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt')):
+                if os.path.exists(config['output'].get('filename', 'model')+'_second_best_accuracy'+config['output'].get('extension', '.ckpt')):
+                    os.remove(config['output'].get('filename', 'model')+'_second_best_accuracy'+config['output'].get('extension', '.ckpt'))
                 os.rename(
                     config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt'),
                     config['output'].get('filename', 'model')+'_second_best_accuracy'+config['output'].get('extension', '.ckpt')
@@ -132,12 +143,17 @@ def main():
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1) )
 
         # Output on progress
-        current_time = time.time()
-        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}, validation in {}'
-            .format(epoch + 1, num_epochs, pretty_print_time(current_time-start_time), pretty_print_time(current_time-start_time_epoch), 
-                pretty_time_left(start_time, epoch+1-rc.start_epoch, num_epochs-rc.start_epoch), 
+        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}, last coef {}, validation in {}'
+            .format(epoch + 1, num_epochs, timer.elapsed(), timer.lap(), timer(epoch+1), 
+                last_coef,
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1)))
 
+        if early_stop and epoch >= (stop_length-1):
+            reg = LinearRegression().fit(stop_x,test_accuracy[epoch-stop_length+1:(epoch+1)].reshape(-1,1))
+            last_coef = reg.coef_[0,0]
+            if last_coef < epsilon_stop:
+                print('Early stopping criterion met: {} < {}'.format(last_coef, epsilon_stop))
+                break
 
     # Save the model checkpoint
     rc.save_state( train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, 
