@@ -7,6 +7,8 @@ from time_left import pretty_time_left, pretty_print_time
 from RetinaCheckerPandas import RetinaCheckerPandas
 from helper_functions import initialize_meters, save_performance
 from make_default_config import get_config
+from sklearn.linear_model import LinearRegression
+
 
 def main():
 
