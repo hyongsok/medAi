@@ -20,7 +20,10 @@ def get_config():
     'batch size': 64,
     'learning rate': 0.001,
     'lr decay step': 50,
-    'lr decay gamma': 0.5
+    'lr decay gamma': 0.5,
+    'early stop': True,
+    'early stop threshold': 0.0,
+    'early stop window': 40
     }
 
     config['files'] = {

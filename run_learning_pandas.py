@@ -58,9 +58,9 @@ def main(argv):
     # early stopping criteria:
     # if the slope of the linear fit to the validation accuracy (\in [0...1]) over the
     # last n epochs is smaller than epsilon
-    early_stop = True
-    epsilon_stop = 0.001
-    stop_length = 10
+    early_stop = config['hyperparameter'].getboolean('early stop', True)
+    epsilon_stop = config['hyperparameter'].getfloat('early stop threshold', 10)
+    stop_length = config['hyperparameter'].getint('early stop window', 40)
     stop_x = np.arange(stop_length).reshape(-1,1)
     last_slope = np.NaN
 
