@@ -144,18 +144,22 @@ def main():
                 test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], rc.classes, 
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1) )
 
+        accuracy_window = test_accuracy[max(epoch-stop_length+1, 0):epoch+1].reshape(-1,1)
+        x_window = stop_x[:len(accuracy_window)]
+        test_slope = LinearRegression().fit(x_window, accuracy_window).coef_
+
         # Output on progress
-        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}, last coef {}, validation in {}'
+        print('Epoch [{}/{}] completed, time since start {}, time this epoch {}, total remaining {}, test acc slope {}, validation in {}'
             .format(epoch + 1, num_epochs, timer.elapsed(), timer.lap(), timer(epoch+1), 
-                last_coef,
+                test_slope,
                 config['output'].get('filename', 'model')+'_validation_after_epoch_{}.dat'.format(epoch+1)))
 
         if early_stop and epoch >= (stop_length-1):
-            reg = LinearRegression().fit(stop_x,test_accuracy[epoch-stop_length+1:(epoch+1)].reshape(-1,1))
-            last_coef = reg.coef_[0,0]
-            if last_coef < epsilon_stop:
+            if test_slope < epsilon_stop:
                 print('Early stopping criterion met: {} < {}'.format(last_coef, epsilon_stop))
                 break
+            else:
+                last_slope = test_slope
 
     # Save the model checkpoint
     rc.save_state( train_loss, train_accuracy, test_loss, test_accuracy, test_confusion, 
