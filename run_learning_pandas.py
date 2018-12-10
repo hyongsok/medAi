@@ -59,8 +59,8 @@ def main():
     # if the slope of the linear fit to the validation accuracy (\in [0...1]) over the
     # last n epochs is smaller than epsilon
     early_stop = True
-    epsilon_stop = -10
-    stop_length = 2
+    epsilon_stop = 0.001
+    stop_length = 10
     stop_x = np.arange(stop_length).reshape(-1,1)
     last_coef = np.NaN
 

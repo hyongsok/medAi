@@ -3,7 +3,7 @@ import configparser
 import time
 import numpy as np
 import torch
-from time_left import pretty_time_left, pretty_print_time
+from time_left import TimeLeft
 from RetinaCheckerPandas import RetinaCheckerPandas
 from helper_functions import initialize_meters, save_performance
 from make_default_config import get_config
@@ -62,8 +62,8 @@ def main():
     # if the slope of the linear fit to the validation accuracy (\in [0...1]) over the
     # last n epochs is smaller than epsilon
     early_stop = True
-    epsilon_stop = -10
-    stop_length = 2
+    epsilon_stop = 0.001
+    stop_length = 10
     stop_x = np.arange(stop_length).reshape(-1,1)
     last_coef = np.NaN
 
