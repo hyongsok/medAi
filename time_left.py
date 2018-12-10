@@ -2,22 +2,45 @@ import time
 
 class TimeLeft(object):
 
-    def __init__(self, n):
+    def __init__(self, n, n_0=0):
+        """Calculates the time left between the current iteration i and the total 
+        number of iterations n while the calculation starts at n_0. 
+        So for n_0=5, n=10, and i=7 it calculates how long the remaining 3
+        iterations will take based on the time passed between the initialization
+        and now given there were 2 iterations in that time.
+        
+        Arguments:
+            n {int} -- number of iterations
+        
+        Keyword Arguments:
+            n_0 {int} -- starting number (default: {0})
+        """
+
         self.max_iterations = n
+        self.start_iteration = n_0
         self.start_time = time.time()
-        self.counter = 0
+        self.lap_time = self.start_time
+        self.counter = n_0
 
     def reset(self):
         self.start_time = time.time()
     
     def time_left(self, ii):
-        return time_left(self.start_time, ii, self.max_iterations)
+        return time_left(self.start_time, ii-self.start_iteration, self.max_iterations-self.start_iteration)
     
     def pretty_time_left(self, ii):
-        return pretty_time_left(self.start_time, ii, self.max_iterations)
+        return pretty_time_left(self.start_time, ii-self.start_iteration, self.max_iterations-self.start_iteration)
+
+    def elapsed(self):
+        return time.time()-self.start_time
+
+    def lap(self):
+        dt = time.time() - self.lap_time
+        self.lap_time = time.time()
+        return pretty_print_time(dt)
 
     def __str__(self):
-        val = self.pretty_time_left(self.counter)
+        val = self.pretty_time_left(self.counter-self.start_iteration)
         return val
 
     def __format__(self, format_spec):
