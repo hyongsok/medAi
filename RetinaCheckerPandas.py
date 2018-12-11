@@ -3,6 +3,7 @@ import os
 import time
 import warnings
 import json
+import io
 
 import numpy as np
 import torch
@@ -30,6 +31,7 @@ class RetinaCheckerPandas():
     def __init__( self ):
         self.device = None
         self.config = None
+        self.config_string = None
 
         self.model = None
         self.model_name = 'inception_v3'
@@ -100,14 +102,36 @@ class RetinaCheckerPandas():
             desc += 'not initialized'
         return desc
 
-    def initialize( self, config ):
+    
+    def initialize(self, config):
         if config is None:
             raise ValueError('config cannot be None')
-        elif config.__class__ == str:
+
+        elif isinstance(config, str):
             self.config = configparser.ConfigParser()
-            self.config.read(config)
-        else:
+            try:
+                self.config.read(config)
+            except Exception:
+                try:
+                    ckpt = torch.load(config, map_location='cpu')
+                    if hasattr(ckpt, 'config'):
+                        self.config.read_string(ckpt['config'])
+                    else:
+                        raise ValueError('Checkpoint has no config stored')
+                except Exception:
+                    raise ValueError('Could not recognize config type')
+        
+        elif isinstance(config, configparser):
             self.config = config
+
+        else:
+            raise ValueError('Could not recognize config type')
+        
+        self._parse_config()
+
+    def _parse_config( self ):
+        if self.config is None:
+            raise ValueError('self.config cannot be None')
 
         self.model_name = self.config['network'].get('model', 'resnet18')
         self.optimizer_name = self.config['network'].get('optimizer', 'Adam')
@@ -280,6 +304,8 @@ class RetinaCheckerPandas():
             test_confusion {torch.Array} -- tensor of confusion matrices
             filename {string} -- target filename
         """
+        self._update_config_string()
+        
         save_dict = {
             'epoch': self.epoch,
             'state_dict': self.model.state_dict(),
@@ -291,7 +317,8 @@ class RetinaCheckerPandas():
             'test_confusion': test_confusion,
             'classes': self.classes,
             'scheduler': self.scheduler.state_dict(),
-            'description': str(self)
+            'description': str(self),
+            'config': self.config_string
         }
         if self.train_file is not None:
             save_dict['train_file'] = self.train_file
@@ -564,3 +591,9 @@ class RetinaCheckerPandas():
 
         sampler = torch.utils.data.WeightedRandomSampler( sampling_weights, num_samples, True )
         return sampler
+
+    def _update_config_string(self):
+        if self.config is not None:
+            with io.StringIO() as fp:
+                self.config.write(fp)
+                self.config_string = fp.getvalue()
