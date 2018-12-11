@@ -74,33 +74,39 @@ class RetinaCheckerPandas():
     def __str__( self ):
         desc = 'RetinaChecker\n'
         if self.initialized:
-            desc += 'Network: ' + self.model_name
-            if self.model_pretrained:
-                desc += ' (pretrained)\n'
-            else:
-                desc += '\n'
-            desc += 'Optimizer: ' + self.optimizer_name + '\n'
-            desc += 'Criterion: ' + self.criterion_name + '\n'
-            desc += 'Epoch: ' + str(self.epoch) + '\n'
-            desc += 'Training root: ' + str(self.train_root) + '\n'
-            desc += 'Training file: ' + str(self.train_file) + '\n'
-            if self.train_dataset is not None:
-                desc += str(self.train_dataset) + '\n'
-            if self.train_loader is not None:
-                desc += 'Batch size: ' + str(self.train_loader.batch_size) + '\n'
-                desc += 'Workers: ' + str(self.train_loader.num_workers) + '\n'
-            desc += 'Test root: ' + str(self.test_root) + '\n'
-            desc += 'Test file: ' + str(self.test_file) + '\n'
-            if self.test_dataset is not None:
-                desc += str(self.test_dataset) + '\n'
-            if self.test_loader is not None:
-                desc += 'Batch size: ' + str(self.test_loader.batch_size) + '\n'
-                desc += 'Workers: ' + str(self.test_loader.num_workers) + '\n'
-            desc += 'Classes: ' + str(self.classes) + '\n'
-            
-
+            desc += self._str_core_info()
+            desc += self._str_data_info()
         else:
             desc += 'not initialized'
+        return desc
+
+    def _str_core_info(self):
+        desc = 'Network: ' + self.model_name
+        if self.model_pretrained:
+            desc += ' (pretrained)\n'
+        else:
+            desc += '\n'
+        desc += 'Optimizer: ' + self.optimizer_name + '\n'
+        desc += 'Criterion: ' + self.criterion_name + '\n'
+        desc += 'Classes: ' + str(self.classes) + '\n'
+        desc += 'Epoch: ' + str(self.epoch) + '\n'
+        return desc
+
+    def _str_data_info(self):
+        desc = 'Training root: ' + str(self.train_root) + '\n'
+        desc += 'Training file: ' + str(self.train_file) + '\n'
+        if self.train_dataset is not None:
+            desc += str(self.train_dataset) + '\n'
+        if self.train_loader is not None:
+            desc += 'Batch size: ' + str(self.train_loader.batch_size) + '\n'
+            desc += 'Workers: ' + str(self.train_loader.num_workers) + '\n'
+        desc += 'Test root: ' + str(self.test_root) + '\n'
+        desc += 'Test file: ' + str(self.test_file) + '\n'
+        if self.test_dataset is not None:
+            desc += str(self.test_dataset) + '\n'
+        if self.test_loader is not None:
+            desc += 'Batch size: ' + str(self.test_loader.batch_size) + '\n'
+            desc += 'Workers: ' + str(self.test_loader.num_workers) + '\n'
         return desc
 
     def reload(self, checkpoint):
@@ -136,7 +142,8 @@ class RetinaCheckerPandas():
                     ckpt = torch.load(config, map_location='cpu')
                     if 'config' in ckpt.keys():
                         self.config.read_string(ckpt['config'])
-                        self.num_classes = len(ckpt['classes'])
+                        self.classes = ckpt['classes']
+                        self.num_classes = len(self.classes)
                     else:
                         raise ValueError('Checkpoint has no config stored')
                 except Exception:
@@ -356,31 +363,35 @@ class RetinaCheckerPandas():
             
         torch.save(save_dict, filename)
 
-    def load_state( self ):
+    def load_state( self, filename=None ):
         """Load the state stored in the config into the given model and optimizer.
         Model and optimizer must match exactly to the stored model, will crash
         otherwise.
         """
         try:
-            if torch.cuda.is_available() and self.device.type.startswith('cuda'):
-                checkpoint = torch.load(self.config['input'].get('checkpoint'))
-            else:
-                checkpoint = torch.load(self.config['input'].get('checkpoint'), map_location='cpu')
+            if filename is None:
+                filename = self.config['input'].get('checkpoint')
+            #if torch.cuda.is_available() and self.device.type.startswith('cuda'):
+            #    checkpoint = torch.load(filename)
+            #else:
+            checkpoint = torch.load(filename, map_location=self.device)
+            
             self.start_epoch = checkpoint['epoch']
             self.epoch = self.start_epoch
             self.model.load_state_dict(checkpoint['state_dict'], strict=False)
-            self.optimizer.load_state_dict(checkpoint['optimizer'])
-            if 'scheduler' in checkpoint:
-                self.scheduler.load_state_dict(checkpoint['scheduler'])
-            else:
-                # initial_lr is not set, so we cannot set the last_epoch without creating an error
-                for g in self.optimizer.param_groups:
-                    if 'initial_lr' not in g:
-                        g['initial_lr'] = g['lr']
-                self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, self.learning_rate_decay_step_size, gamma=self.learning_rate_decay_gamma, last_epoch=self.start_epoch)
+            if self.optimizer is not None:
+                self.optimizer.load_state_dict(checkpoint['optimizer'])
+                if 'scheduler' in checkpoint:
+                    self.scheduler.load_state_dict(checkpoint['scheduler'])
+                else:
+                    # initial_lr is not set, so we cannot set the last_epoch without creating an error
+                    for g in self.optimizer.param_groups:
+                        if 'initial_lr' not in g:
+                            g['initial_lr'] = g['lr']
+                    self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, self.learning_rate_decay_step_size, gamma=self.learning_rate_decay_gamma, last_epoch=self.start_epoch)
 
             print("=> loaded checkpoint '{}' (epoch {})"
-                    .format(self.config['input'].get('checkpoint'), checkpoint['epoch']))
+                    .format(filename, checkpoint['epoch']))
         except OSError as e:
             print("Exception occurred. Did not load model, starting from scratch.\n", e)
 
