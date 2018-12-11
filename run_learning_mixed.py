@@ -28,11 +28,11 @@ def main(argv):
     # Loading data sets based on configuration and enable normaization
     rc.load_datasets()
     rc.train_dataset.append_csv(
-        source=config.config['files'].get('train file 2', 'D:/Dropbox/Data/retina_data/images/KUtrain.csv'),
-        root=config.config['files'].get('train root 2', 'D:/Dropbox/Data/retina_data/images/KU-cropped/'))
+        source=config['files'].get('train file 2', 'D:/Dropbox/Data/retina_data/images/KUtrain.csv'),
+        root=config['files'].get('train root 2', 'D:/Dropbox/Data/retina_data/images/KU-cropped/'))
     rc.test_dataset.append_csv(
-        source=config.config['files'].get('test file 2', 'D:/Dropbox/Data/retina_data/images/KUtest.csv'), 
-        root=config.config['files'].get('test root 2', 'D:/Dropbox/Data/retina_data/images/KU-test-cropped/'))
+        source=config['files'].get('test file 2', 'D:/Dropbox/Data/retina_data/images/KUtest.csv'), 
+        root=config['files'].get('test root 2', 'D:/Dropbox/Data/retina_data/images/KU-test-cropped/'))
 
     # Initializing sampler and data (=patch) loader
     rc.create_dataloader(config['files'].getint('num workers', 0))
