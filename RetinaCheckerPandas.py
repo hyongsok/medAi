@@ -34,12 +34,12 @@ class RetinaCheckerPandas():
         self.config_string = None
 
         self.model = None
-        self.model_name = 'inception_v3'
+        self.model_name = None
         self.optimizer = None
-        self.optimizer_name = 'Adam'
+        self.optimizer_name = None
         self.scheduler = None
         self.criterion = None
-        self.criterion_name = 'BCEWithLogitsLoss'
+        self.criterion_name = None
 
         self.model_pretrained = False
         self.model_kwargs = {}
@@ -57,6 +57,7 @@ class RetinaCheckerPandas():
         self.normalize_mean = None
         self.normalize_std = None
         self.normalize_factors = None
+        self.image_size = None
 
         self.train_loader = None
         self.test_loader = None
@@ -102,6 +103,21 @@ class RetinaCheckerPandas():
             desc += 'not initialized'
         return desc
 
+    def reload(self, checkpoint):
+        self.initialize(checkpoint)
+
+        self.load_datasets()
+
+        # Initializing sampler and data (=patch) loader
+        self.create_dataloader(self.config['files'].getint('num workers', 0))
+
+        # Initialize the model
+        self.initialize_model()
+        self.initialize_criterion()
+        self.initialize_optimizer()
+
+        self.config['input']['checkpoint'] = checkpoint
+        self.load_state()    
     
     def initialize(self, config):
         if config is None:
@@ -111,7 +127,7 @@ class RetinaCheckerPandas():
             self.config = configparser.ConfigParser()
             try:
                 self.config.read(config)
-            except Exception:
+            except (configparser.MissingSectionHeaderError):
                 try:
                     ckpt = torch.load(config, map_location='cpu')
                     if hasattr(ckpt, 'config'):
@@ -120,6 +136,7 @@ class RetinaCheckerPandas():
                         raise ValueError('Checkpoint has no config stored')
                 except Exception:
                     raise ValueError('Could not recognize config type')
+        
         
         elif isinstance(config, configparser.ConfigParser):
             self.config = config
@@ -155,6 +172,8 @@ class RetinaCheckerPandas():
         self.learning_rate = self.config['hyperparameter'].getfloat('learning rate', 0.01)
         self.learning_rate_decay_step_size = self.config['hyperparameter'].getfloat('lr decay step', 50)
         self.learning_rate_decay_gamma = self.config['hyperparameter'].getfloat('lr decay gamma', 0.5)
+
+        self.image_size = self.config['files'].getint('image size', 299)
 
         if self.device is None:
             self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -249,8 +268,8 @@ class RetinaCheckerPandas():
                 self.train_dataset, self.test_dataset = dataset.split(test_size=test_size, return_indices=self.split_indices)
                 self.train_dataset.transform = train_transform
                 self.test_dataset.transform = test_transform
-                self.train_dataset.dump('train.csv')
-                self.test_dataset.dump('test.csv')
+                #self.train_dataset.dump('train.csv')
+                #self.test_dataset.dump('test.csv')
             else:
                 self.train_dataset = PandasDataset.PandasDataset(source=self.train_file, mode='csv',
                                                             root=self.train_root,
@@ -401,7 +420,6 @@ class RetinaCheckerPandas():
             print("Exception occurred. Did not load data\n", e)
 
     def _get_training_transform( self, normalize_factors=None ):
-        image_size = self.config['files'].getint('image size', 299)
 
         rotation_angle = self.config['transform'].getint('rotation angle', 180)
         rotation = transforms.RandomRotation(rotation_angle)
@@ -415,9 +433,9 @@ class RetinaCheckerPandas():
         color_jitter = transforms.RandomApply([transforms.ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation, hue=hue)])
         
         randcrop = transforms.RandomChoice((
-            transforms.RandomResizedCrop(size=image_size, scale=(min_scale, max_scale), ratio=(1,1)),
-            transforms.RandomResizedCrop(size=image_size, scale=(min_scale, 0.4), ratio=(0.8,1.25)),
-            transforms.RandomResizedCrop(size=image_size, scale=(min_scale, 0.4), ratio=(0.8,1.25))
+            transforms.RandomResizedCrop(size=self.image_size, scale=(min_scale, max_scale), ratio=(1,1)),
+            transforms.RandomResizedCrop(size=self.image_size, scale=(min_scale, 0.4), ratio=(0.8,1.25)),
+            transforms.RandomResizedCrop(size=self.image_size, scale=(min_scale, 0.4), ratio=(0.8,1.25))
         ))
 
         transform_list = [
@@ -439,12 +457,10 @@ class RetinaCheckerPandas():
         return train_transform
     
     def _get_test_transform( self, normalize_factors=None ):
-        image_size = self.config['files'].getint('image size', 299)
         # normalization factors for the DMR dataset were manually derived
-
         transform_list = [
-                transforms.Resize(size=image_size),
-                transforms.CenterCrop(size=image_size),
+                transforms.Resize(size=self.image_size),
+                transforms.CenterCrop(size=self.image_size),
                 transforms.ToTensor(),
             ]
         

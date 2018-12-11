@@ -23,7 +23,7 @@ def get_config():
     'lr decay gamma': 0.5,
     'early stop': True,
     'early stop threshold': 0.0,
-    'early stop window': 40
+    'early stop window': 30
     }
 
     config['files'] = {
