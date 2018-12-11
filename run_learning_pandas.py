@@ -14,7 +14,7 @@ def main(argv):
     # Reading configuration file
     config = configparser.ConfigParser()
     if len(argv) > 1:
-        config.read(sys.argv[1])
+        config.read(argv[1])
     else:
         config = get_config()
 
