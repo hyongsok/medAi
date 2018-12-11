@@ -121,7 +121,7 @@ class RetinaCheckerPandas():
                 except Exception:
                     raise ValueError('Could not recognize config type')
         
-        elif isinstance(config, configparser):
+        elif isinstance(config, configparser.ConfigParser):
             self.config = config
 
         else:
@@ -305,7 +305,7 @@ class RetinaCheckerPandas():
             filename {string} -- target filename
         """
         self._update_config_string()
-        
+
         save_dict = {
             'epoch': self.epoch,
             'state_dict': self.model.state_dict(),
