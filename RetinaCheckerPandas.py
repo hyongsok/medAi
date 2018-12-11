@@ -106,10 +106,14 @@ class RetinaCheckerPandas():
     def reload(self, checkpoint):
         self.initialize(checkpoint)
 
-        self.load_datasets()
+        try:
+            self.load_datasets()
 
-        # Initializing sampler and data (=patch) loader
-        self.create_dataloader(self.config['files'].getint('num workers', 0))
+            # Initializing sampler and data (=patch) loader
+            self.create_dataloader()
+        except FileNotFoundError:
+            print('Could not load data sets. Continue with model.')
+
 
         # Initialize the model
         self.initialize_model()
@@ -127,11 +131,12 @@ class RetinaCheckerPandas():
             self.config = configparser.ConfigParser()
             try:
                 self.config.read(config)
-            except (configparser.MissingSectionHeaderError):
+            except (configparser.MissingSectionHeaderError, UnicodeDecodeError):
                 try:
                     ckpt = torch.load(config, map_location='cpu')
-                    if hasattr(ckpt, 'config'):
+                    if 'config' in ckpt.keys():
                         self.config.read_string(ckpt['config'])
+                        self.num_classes = len(ckpt['classes'])
                     else:
                         raise ValueError('Checkpoint has no config stored')
                 except Exception:
