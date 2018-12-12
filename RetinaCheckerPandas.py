@@ -1,6 +1,5 @@
 import configparser
 import os
-import time
 import warnings
 import json
 import io
@@ -22,6 +21,15 @@ def single_output_performance( labels, outputs, feature_number=5 ):
         predicted = nn.Sigmoid()(outputs)
     perf2 = (predicted[:,feature_number].round()==labels[:,feature_number])
     num_correct = float(perf2.sum())
+    return num_correct
+
+def all_or_nothing_performance( labels, outputs ):
+    if isinstance(outputs, tuple):
+        predicted = nn.Sigmoid()(outputs[0])
+    else:
+        predicted = nn.Sigmoid()(outputs)
+    perf = (predicted.round()==labels).sum(1) == labels.size()[1]
+    num_correct = float(perf.sum())
     return num_correct
 
 class RetinaCheckerPandas():
