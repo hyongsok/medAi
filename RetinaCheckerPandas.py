@@ -12,7 +12,7 @@ import model_wrapper as models
 import torchvision.transforms as transforms
 
 import PandasDataset
-from helper_functions import AccuracyMeter, AverageMeter
+from helper_functions import AccuracyMeter, AverageMeter, AccuracyMeter2
 
 def single_output_performance( labels, outputs, feature_number=5 ):
     if isinstance(outputs, tuple):
@@ -497,7 +497,7 @@ class RetinaCheckerPandas():
 
         return test_transform
 
-    def train( self, evaluate_performance=single_output_performance ):
+    def train( self, evaluate_performance=single_output_performance, second_performance=all_or_nothing_performance ):
         '''Deep learning training function to optimize the network with all images in the train_loader.
         
         Returns:
@@ -513,11 +513,11 @@ class RetinaCheckerPandas():
             return
 
         losses = AverageMeter()
-        accuracy = AccuracyMeter()
+        accuracy = AccuracyMeter2()
         self.model.train()
         self.scheduler.step()
 
-        for i, (images, labels) in enumerate(self.train_loader):
+        for images, labels in self.train_loader:
             images = images.to(self.device)
             labels = labels.to(self.device)
 
@@ -536,6 +536,10 @@ class RetinaCheckerPandas():
             num_correct = evaluate_performance( labels, outputs )
             accuracy.update(num_correct, labels.size(0))
 
+            num_correct = second_performance( labels, outputs )
+            accuracy.update_b(num_correct, labels.size(0))
+
+
             # Backward and optimize
             self.optimizer.zero_grad()
             loss.backward()
@@ -553,7 +557,7 @@ class RetinaCheckerPandas():
         return losses, accuracy   
 
 
-    def validate(self, test_loader = None, evaluate_performance=single_output_performance ):
+    def validate(self, test_loader = None, evaluate_performance=single_output_performance, second_performance=all_or_nothing_performance):
         '''Evaluates the model given the criterion and the data in test_loader
         
         Arguments:
@@ -589,8 +593,11 @@ class RetinaCheckerPandas():
                 losses.update(loss.item(), images.size(0))
 
                 num_correct = evaluate_performance( labels, outputs )
-
                 accuracy.update(num_correct, labels.size(0))
+
+                num_correct = second_performance( labels, outputs )
+                accuracy.update_b(num_correct, labels.size(0))
+
                 predicted = torch.nn.Sigmoid()(outputs).round()
 
                 for pred, lab in zip(predicted[:,5], labels[:,5]):

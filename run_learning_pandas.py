@@ -161,7 +161,7 @@ def main(argv):
                 config['output'].get('filename', 'model')+config['output'].get('extension', '.ckpt') )
     save_performance( train_loss[:(epoch+1)], train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                 test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], rc.classes, 
-                config['output'].get('filename', 'model')+'_validation.dat'.format(epoch+1) )
+                config['output'].get('filename', 'model')+'_validation.dat' )
 
     # cleanup
     if config['output'].getboolean('cleanup', True):
