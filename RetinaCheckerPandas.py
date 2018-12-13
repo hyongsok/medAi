@@ -66,6 +66,7 @@ class RetinaCheckerPandas():
         self.normalize_std = None
         self.normalize_factors = None
         self.image_size = None
+        self.test_scale_factor = 1.1
 
         self.train_loader = None
         self.test_loader = None
@@ -127,7 +128,6 @@ class RetinaCheckerPandas():
             self.create_dataloader()
         except FileNotFoundError:
             print('Could not load data sets. Continue with model.')
-
 
         # Initialize the model
         self.initialize_model()
@@ -234,28 +234,6 @@ class RetinaCheckerPandas():
         num_ftrs = self.model.fc.in_features
         self.model.fc = nn.Linear(num_ftrs, self.num_classes)
         self.model.AuxLogits.fc = nn.Linear(self.model.AuxLogits.fc.in_features, self.num_classes)
-        self.model = self.model.to(self.device)
-
-    def initialize_model_inception_short( self, **kwargs ):
-        model_loader = models.inception_v3_s
-        
-        self.model = model_loader( pretrained=False, **kwargs)
-        num_ftrs = self.model.fc.in_features
-        self.model.fc = nn.Linear(num_ftrs, self.num_classes)
-        self.model.AuxLogits.fc = nn.Linear(self.model.AuxLogits.fc.in_features, self.num_classes)
-        self.model = self.model.to(self.device)
-
-    def initialize_model_without_logits( self, **kwargs ):
-        model_loader = None
-        if self.model_name in models.__dict__.keys():
-            model_loader = models.__dict__[self.model_name]
-        else:
-            warnings.warn('Could not identify model')
-            return
-        
-        self.model = model_loader( pretrained=self.model_pretrained, **kwargs)
-        num_ftrs = self.model.fc.in_features
-        self.model.fc = nn.Linear(num_ftrs, self.num_classes)
         self.model = self.model.to(self.device)
 
     def load_datasets( self, test_size=0.1 ):
@@ -458,18 +436,22 @@ class RetinaCheckerPandas():
         
         randcrop = transforms.RandomChoice((
             transforms.RandomResizedCrop(size=self.image_size, scale=(min_scale, max_scale), ratio=(1,1)),
-            transforms.RandomResizedCrop(size=self.image_size, scale=(min_scale, 0.4), ratio=(0.8,1.25)),
             transforms.RandomResizedCrop(size=self.image_size, scale=(min_scale, 0.4), ratio=(0.8,1.25))
         ))
 
-        transform_list = [
-                color_jitter,
-                #rotation,
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomVerticalFlip(),
-                randcrop,
-                transforms.ToTensor(),
-            ]
+        transform_list = []
+        if brightness != 0 or contrast != 0 or saturation != 0 or hue != 0:
+            transform_list.append(color_jitter)
+        
+        if rotation_angle != 0:
+            transform_list.append(rotation)
+        
+        transform_list += [ 
+            transforms.RandomHorizontalFlip(p=0.2),
+            transforms.RandomVerticalFlip(p=0.2),
+            randcrop,
+            transforms.ToTensor(),
+        ]
         
         if not normalize_factors is None:
             normalize = transforms.Normalize(mean=normalize_factors[0],
@@ -483,7 +465,7 @@ class RetinaCheckerPandas():
     def _get_test_transform( self, normalize_factors=None ):
         # normalization factors for the DMR dataset were manually derived
         transform_list = [
-                transforms.Resize(size=self.image_size),
+                transforms.Resize(size=self.image_size*self.test_scale_factor),
                 transforms.CenterCrop(size=self.image_size),
                 transforms.ToTensor(),
             ]
@@ -497,7 +479,7 @@ class RetinaCheckerPandas():
 
         return test_transform
 
-    def train( self, evaluate_performance=single_output_performance, second_performance=all_or_nothing_performance ):
+    def train( self, evaluate_performance=all_or_nothing_performance ):
         '''Deep learning training function to optimize the network with all images in the train_loader.
         
         Returns:
@@ -513,7 +495,7 @@ class RetinaCheckerPandas():
             return
 
         losses = AverageMeter()
-        accuracy = AccuracyMeter2()
+        accuracy = AccuracyMeter()
         self.model.train()
         self.scheduler.step()
 
@@ -536,10 +518,6 @@ class RetinaCheckerPandas():
             num_correct = evaluate_performance( labels, outputs )
             accuracy.update(num_correct, labels.size(0))
 
-            num_correct = second_performance( labels, outputs )
-            accuracy.update_b(num_correct, labels.size(0))
-
-
             # Backward and optimize
             self.optimizer.zero_grad()
             loss.backward()
@@ -557,7 +535,7 @@ class RetinaCheckerPandas():
         return losses, accuracy   
 
 
-    def validate(self, test_loader = None, evaluate_performance=single_output_performance, second_performance=all_or_nothing_performance):
+    def validate(self, test_loader = None, evaluate_performance=all_or_nothing_performance, confusion_matrix_label=5):
         '''Evaluates the model given the criterion and the data in test_loader
         
         Arguments:
@@ -595,12 +573,9 @@ class RetinaCheckerPandas():
                 num_correct = evaluate_performance( labels, outputs )
                 accuracy.update(num_correct, labels.size(0))
 
-                num_correct = second_performance( labels, outputs )
-                accuracy.update_b(num_correct, labels.size(0))
-
                 predicted = torch.nn.Sigmoid()(outputs).round()
 
-                for pred, lab in zip(predicted[:,5], labels[:,5]):
+                for pred, lab in zip(predicted[:,confusion_matrix_label], labels[:,confusion_matrix_label]):
                     confusion[int(pred.item()), int(lab.item())] += 1
 
                 #print('Test - samples: {}, correct: {} ({:.1f}%), loss: {}'.format(labels.size(0), num_correct, num_correct/labels.size(0)*100, loss.item()))

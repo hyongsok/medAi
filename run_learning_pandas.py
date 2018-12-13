@@ -26,6 +26,15 @@ def main(argv):
 
     # Loading data sets based on configuration and enable normaization
     rc.load_datasets()
+    if rc.config.has_option('files', 'train file 2'):
+        rc.train_dataset.append_csv(
+            source=config['files'].get('train file 2', 'D:/Dropbox/Data/retina_data/images/KUtrain.csv'),
+            root=config['files'].get('train root 2', 'D:/Dropbox/Data/retina_data/images/KU-cropped/'))
+    if rc.config.has_option('files', 'test file 2'):
+        rc.test_dataset.append_csv(
+            source=config['files'].get('test file 2', 'D:/Dropbox/Data/retina_data/images/KUtest.csv'), 
+            root=config['files'].get('test root 2', 'D:/Dropbox/Data/retina_data/images/KU-test-cropped/'))
+
 
     # Initializing sampler and data (=patch) loader
     rc.create_dataloader(config['files'].getint('num workers', 0))
@@ -52,6 +61,7 @@ def main(argv):
 
     # Starting training & evaluation
     best_accuracy = 0
+    best_overall_accuracy = 0
     best_sensitivity = 0
     best_specificity = 0
 
@@ -91,6 +101,7 @@ def main(argv):
         accuracy_2class = np.diag(confusion_2class).sum()/confusion_2class.sum()
         sensitivity_2class = confusion_2class[1,1]/confusion_2class[:,1].sum()
         specificity_2class = confusion_2class[0,0]/confusion_2class[:,0].sum()
+        print('Overall Accuracy: {:.1f}%'.format(accuracy.avg*100))
         print('Accuracy: {:.1f}%'.format(accuracy_2class*100))
         print('Sensitivity: {:.1f}%'.format(sensitivity_2class*100))
         print('Specificity: {:.1f}%'.format(specificity_2class*100))
@@ -101,7 +112,27 @@ def main(argv):
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
                         config['output'].get('filename', 'model')+'_after_epoch_{}'.format(epoch+1)+config['output'].get('extension', '.ckpt') )
         
-        if accuracy.avg > best_accuracy:
+        if accuracy.avg > best_overall_accuracy:
+            if os.path.exists(config['output'].get('filename', 'model')+'_best_overall_accuracy'+config['output'].get('extension', '.ckpt')):
+                if os.path.exists(config['output'].get('filename', 'model')+'_second_best_overall_accuracy'+config['output'].get('extension', '.ckpt')):
+                    os.remove(config['output'].get('filename', 'model')+'_second_best_overall_accuracy'+config['output'].get('extension', '.ckpt'))
+                os.rename(
+                    config['output'].get('filename', 'model')+'_best_overall_accuracy'+config['output'].get('extension', '.ckpt'),
+                    config['output'].get('filename', 'model')+'_second_best_overall_accuracy'+config['output'].get('extension', '.ckpt')
+                )
+            rc.save_state( train_loss[:(epoch+1)], 
+                        train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
+                        config['output'].get('filename', 'model')+'_best_overall_accuracy'+config['output'].get('extension', '.ckpt') )
+            best_overall_accuracy = accuracy.avg
+
+        if accuracy.avg >= best_overall_accuracy:
+            rc.save_state( train_loss[:(epoch+1)], 
+                        train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
+                        test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
+                        config['output'].get('filename', 'model')+'_best_overall_accuracy_later'+config['output'].get('extension', '.ckpt') )
+
+        if accuracy_2class > best_accuracy:
             if os.path.exists(config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt')):
                 if os.path.exists(config['output'].get('filename', 'model')+'_second_best_accuracy'+config['output'].get('extension', '.ckpt')):
                     os.remove(config['output'].get('filename', 'model')+'_second_best_accuracy'+config['output'].get('extension', '.ckpt'))
@@ -113,14 +144,13 @@ def main(argv):
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
                         config['output'].get('filename', 'model')+'_best_accuracy'+config['output'].get('extension', '.ckpt') )
-            best_accuracy = accuracy.avg
+            best_accuracy = accuracy_2class
 
-        if accuracy.avg >= best_accuracy:
+        if accuracy_2class >= best_accuracy:
             rc.save_state( train_loss[:(epoch+1)], 
                         train_accuracy[:(epoch+1)], test_loss[:(epoch+1)], 
                         test_accuracy[:(epoch+1)], test_confusion[:(epoch+1),:,:], 
-                        config['output'].get('filename', 'model')+'_best_accuracy_later'+config['output'].get('extension', '.ckpt') )
-            best_accuracy = accuracy.avg
+                        config['output'].get('filename', 'model')+'_best_accuracy_later'+config['output'].get('extension', '.ckpt') )     
         
         if sensitivity_2class > best_sensitivity:
             rc.save_state( train_loss[:(epoch+1)], 
