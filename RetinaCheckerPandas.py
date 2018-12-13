@@ -465,7 +465,7 @@ class RetinaCheckerPandas():
     def _get_test_transform( self, normalize_factors=None ):
         # normalization factors for the DMR dataset were manually derived
         transform_list = [
-                transforms.Resize(size=self.image_size*self.test_scale_factor),
+                transforms.Resize(size=int(self.image_size*self.test_scale_factor)),
                 transforms.CenterCrop(size=self.image_size),
                 transforms.ToTensor(),
             ]
